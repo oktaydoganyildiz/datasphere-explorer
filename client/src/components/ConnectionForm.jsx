@@ -30,16 +30,33 @@ const ConnectionForm = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Connection failed');
+      const text = await res.text();
+      if (!text) throw new Error('Sunucudan boş yanıt geldi. Backend çalışıyor mu?');
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Sunucudan geçersiz yanıt: ' + text.slice(0, 100));
       }
 
-      // 2. Fetch Schemas on success
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Bağlantı başarısız');
+      }
+
+      // 2. Fetch Schemas
       const schemaRes = await fetch('/api/tables/schemas');
-      const schemaData = await schemaRes.json();
+      const schemaText = await schemaRes.text();
+      if (!schemaText) throw new Error('Şema listesi alınamadı.');
       
+      let schemaData;
+      try {
+        schemaData = JSON.parse(schemaText);
+      } catch {
+        throw new Error('Şema yanıtı geçersiz: ' + schemaText.slice(0, 100));
+      }
+
       setConnected(true, formData);
       setSchemas(schemaData.map(s => s.SCHEMA_NAME));
 
@@ -51,68 +68,68 @@ const ConnectionForm = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-md">
       <div className="flex items-center justify-center mb-6">
-        <div className="p-3 bg-blue-100 rounded-full">
+        <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
           <Server className="w-8 h-8 text-blue-600" />
         </div>
       </div>
       
-      <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Connect to DataSphere</h2>
-      <p className="text-center text-gray-500 mb-6 text-sm">Enter your HANA Cloud credentials</p>
+      <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-2">Connect to DataSphere</h2>
+      <p className="text-center text-gray-500 dark:text-gray-400 mb-6 text-sm">Enter your HANA Cloud credentials</p>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-md border border-red-100 dark:border-red-800 whitespace-pre-wrap break-all">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Host</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Host</label>
           <input
             type="text"
             name="host"
             value={formData.host}
             onChange={handleChange}
             placeholder="e.g., my-hana-instance.hana.ondemand.com"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Port</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Port</label>
           <input
             type="number"
             name="port"
             value={formData.port}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">User</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User</label>
           <input
             type="text"
             name="user"
             value={formData.user}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
           <input
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
             required
           />
         </div>
