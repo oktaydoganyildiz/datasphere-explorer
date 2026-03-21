@@ -1,90 +1,94 @@
 import React from 'react';
-import { Database, Folder, LayoutDashboard, Sparkles, LogOut, Activity, GitFork } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Table,
+  Activity,
+  GitCompare,
+  Upload,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+} from 'lucide-react';
 import useConnectionStore from '../store/connectionStore';
-import ThemeToggle from './ThemeToggle';
 
-const Sidebar = ({ onDisconnect, activeTab, setActiveTab }) => {
-  const { isConnected, connectionConfig } = useConnectionStore();
+const NAV = [
+  { id: 'dashboard',    label: 'Dashboard',      icon: LayoutDashboard },
+  { id: 'explorer',     label: 'Table Explorer', icon: Table },
+  { id: 'health',       label: 'Health Monitor', icon: Activity },
+  { divider: true },
+  { id: 'schemadiff',   label: 'Schema Diff',    icon: GitCompare },
+  { id: 'csvimport',    label: 'CSV Import',      icon: Upload },
+  { id: 'queryhistory', label: 'Query History',   icon: Clock },
+];
 
-  const navItem = (tab, Icon, label, accent = null) => {
-    const active = activeTab === tab;
-    return (
-      <div
-        key={tab}
-        onClick={() => isConnected && setActiveTab(tab)}
-        className={`flex items-center px-4 py-2.5 cursor-pointer transition-all duration-150 border-l-4 select-none ${
-          active
-            ? 'bg-slate-800 text-white border-blue-500'
-            : 'text-slate-400 hover:bg-slate-800 hover:text-white border-transparent'
-        } ${!isConnected ? 'opacity-40 pointer-events-none' : ''}`}
-      >
-        <Icon className={`w-4 h-4 mr-3 flex-shrink-0 ${accent && !active ? accent : ''}`} />
-        <span className="text-sm">{label}</span>
-      </div>
-    );
-  };
+const Sidebar = ({ activeTab, setActiveTab }) => {
+  const [collapsed, setCollapsed] = React.useState(false);
+  const { connectionConfig, isConnected } = useConnectionStore();
 
   return (
-    <div className="w-64 bg-slate-900 text-white flex flex-col h-screen border-r border-slate-800 shrink-0">
-      <div className="p-4 border-b border-slate-800 flex items-center space-x-2">
-        <Database className="w-6 h-6 text-blue-400 flex-shrink-0" />
-        <span className="font-bold text-lg leading-none">DataSphere</span>
-      </div>
-
-      <div className="px-4 py-3 border-b border-slate-800">
-        {isConnected ? (
-          <>
-            <div className="flex items-center space-x-2 text-green-400 mb-0.5">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-              <span className="text-xs font-medium">Bağlı</span>
-            </div>
-            <p className="text-xs text-slate-300 truncate" title={connectionConfig?.host}>
-              {connectionConfig?.host}
-            </p>
-            <p className="text-xs text-slate-500">{connectionConfig?.user}</p>
-          </>
-        ) : (
-          <p className="text-xs text-slate-500">Bağlantı yok</p>
+    <aside
+      className={"flex flex-col h-screen bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 transition-all duration-200 " + (collapsed ? 'w-16' : 'w-56')}
+    >
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 dark:border-slate-700">
+        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+          <Database className="w-4 h-4 text-white" />
+        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-800 dark:text-white leading-tight truncate">DataSphere</p>
+            <p className="text-xs text-gray-400 truncate">Explorer</p>
+          </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto py-3">
-        <p className="px-4 mb-2 text-xs text-slate-500 uppercase font-semibold tracking-wider">Genel</p>
-        <nav className="space-y-0.5">
-          {navItem('dashboard', LayoutDashboard, 'Dashboard')}
-          {navItem('explorer',  Folder,          'Explorer')}
-        </nav>
-
-        <p className="px-4 mt-5 mb-2 text-xs text-slate-500 uppercase font-semibold tracking-wider">Analiz</p>
-        <nav className="space-y-0.5">
-          {navItem('health',  Activity, 'Health Monitor', 'text-emerald-400')}
-          {navItem('lineage', GitFork,  'Data Lineage',   'text-purple-400')}
-        </nav>
-
-        <p className="px-4 mt-5 mb-2 text-xs text-slate-500 uppercase font-semibold tracking-wider">AI</p>
-        <nav className="space-y-0.5">
-          {navItem('ai', Sparkles, 'AI Assistant', 'text-purple-400')}
-        </nav>
-      </div>
-
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center justify-between mb-3">
-          <ThemeToggle />
-          {isConnected && (
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+        {NAV.map((item, i) => {
+          if (item.divider) {
+            return collapsed
+              ? <div key={i} className="my-2 border-t border-gray-100 dark:border-slate-700 mx-2" />
+              : <p key={i} className="px-3 pt-3 pb-1 text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Pro Araçlar</p>;
+          }
+          const Icon = item.icon;
+          const active = activeTab === item.id;
+          return (
             <button
-              onClick={onDisconnect}
-              className="flex items-center text-xs text-red-400 hover:text-red-300 transition-colors"
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              title={collapsed ? item.label : undefined}
+              className={"w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors " + (
+                active
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white'
+              )}
             >
-              <LogOut className="w-3.5 h-3.5 mr-1" />
-              Bağlantıyı Kes
+              <Icon className={"w-4 h-4 flex-shrink-0 " + (active ? 'text-blue-600 dark:text-blue-400' : '')} />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </button>
-          )}
+          );
+        })}
+      </nav>
+
+      {!collapsed && (
+        <div className="px-3 py-3 border-t border-gray-100 dark:border-slate-700">
+          <div className={"flex items-center gap-2 px-3 py-2 rounded-lg text-xs " + (
+            isConnected
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+              : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'
+          )}>
+            <div className={"w-1.5 h-1.5 rounded-full flex-shrink-0 " + (isConnected ? 'bg-emerald-500' : 'bg-gray-400')} />
+            <span className="truncate">{isConnected ? (connectionConfig?.host || 'Bağlı') : 'Bağlantı yok'}</span>
+          </div>
         </div>
-        <p className="text-[10px] text-slate-500 text-center font-medium pt-2 border-t border-slate-800/50">
-          Created by <span className="text-slate-400">Oktay Doğanyıldız</span>
-        </p>
-      </div>
-    </div>
+      )}
+
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="flex items-center justify-center h-10 border-t border-gray-100 dark:border-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+      >
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+      </button>
+    </aside>
   );
 };
 
