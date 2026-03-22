@@ -40,7 +40,7 @@ A modern, full-stack web application designed to connect to **SAP DataSphere** o
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/datasphere-explorer.git
+    git clone https://github.com/oktaydoganyildiz/datasphere-explorer.git
     cd datasphere-explorer
     ```
 
