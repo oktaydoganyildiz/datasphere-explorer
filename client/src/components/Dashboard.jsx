@@ -193,7 +193,7 @@ const MOCK_DATA_LOADS = [
   { task: 'Daily Sales Import', time: '10:30 AM', status: 'success' },
   { task: 'Inventory Sync', time: '09:15 AM', status: 'success' },
   { task: 'Customer CRM Update', time: '08:45 AM', status: 'failed' },
-  { task: 'Logs Archiving', time: '02:00 AM', status: 'success' },
+  { name: 'Logs Archiving', time: '02:00 AM', status: 'success' },
   { task: 'Currency Rates Fetch', time: '01:30 AM', status: 'success' },
 ];
 
@@ -209,9 +209,10 @@ const Dashboard = () => {
       try {
         const res = await fetch('/api/stats/dashboard');
         const data = await res.json();
+        console.log('Dashboard stats:', data);
         setStats(data);
       } catch {
-        setStats({ totalTables: 0, totalViews: 0, schema: 'UNKNOWN', topTables: [], activeConnections: 0 });
+        setStats({ totalTables: 0, totalViews: 0, schema: 'UNKNOWN', topTables: [], activeConnections: 0, recentDataLoads: [] });
       } finally {
         setLoading(false);
       }
@@ -310,7 +311,7 @@ const Dashboard = () => {
       </div>
 
       {/* Data loads table */}
-      <AnimatedDataLoads loads={MOCK_DATA_LOADS} />
+      <AnimatedDataLoads loads={stats.recentDataLoads?.length > 0 ? stats.recentDataLoads : MOCK_DATA_LOADS} />
     </div>
   );
 };

@@ -30,7 +30,48 @@ router.get('/dashboard', async (req, res, next) => {
     const connResult = await hanaService.execute(connSql);
     const activeConnections = connResult[0]?.COUNT || 0;
 
-    res.json({ schema, totalTables, totalViews, topTables, activeConnections });
+    const taskChainsSql = `
+      SELECT TOP 10
+        TASK_CHAIN_NAME,
+        STATUS,
+        LAST_RUN_START_TIME,
+        LAST_RUN_END_TIME,
+        LAST_RUN_STATUS
+      FROM SYS.M_TASK_CHAINS
+      ORDER BY LAST_RUN_START_TIME DESC
+    `;
+    
+    const altTaskChainsSql = `
+      SELECT TOP 10
+        TASK_NAME AS TASK_CHAIN_NAME,
+        STATUS,
+        START_TIME AS LAST_RUN_START_TIME,
+        END_TIME AS LAST_RUN_END_TIME,
+        RUN_STATUS AS LAST_RUN_STATUS
+      FROM _SYS_TASK.TASK_RUNS
+      ORDER BY START_TIME DESC
+    `;
+    
+    let recentDataLoads = [];
+    try {
+      recentDataLoads = await hanaService.execute(taskChainsSql);
+      console.log('Task chains (M_TASK_CHAINS):', recentDataLoads);
+      if (!recentDataLoads || recentDataLoads.length === 0) {
+        console.log('Trying alternative task runs query...');
+        recentDataLoads = await hanaService.execute(altTaskChainsSql);
+        console.log('Task runs (TASK_RUNS):', recentDataLoads);
+      }
+      recentDataLoads = recentDataLoads.map(tc => ({
+        task: tc.TASK_CHAIN_NAME || tc.TASK_NAME,
+        time: tc.LAST_RUN_START_TIME || tc.START_TIME ? new Date(tc.LAST_RUN_START_TIME || tc.START_TIME).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-',
+        status: (tc.LAST_RUN_STATUS || tc.RUN_STATUS) === 'COMPLETED' ? 'success' : (tc.LAST_RUN_STATUS || tc.RUN_STATUS) === 'FAILED' ? 'failed' : 'running'
+      }));
+    } catch (e) {
+      console.error('Task chains error:', e.message);
+      recentDataLoads = [];
+    }
+
+    res.json({ schema, totalTables, totalViews, topTables, activeConnections, recentDataLoads });
   } catch (err) { next(err); }
 });
 
@@ -70,7 +111,7 @@ router.get('/health', async (req, res, next) => {
         USER_NAME,
         CLIENT_HOST,
         CONNECTION_STATUS,
-        CURRENT_STATEMENT_TYPE as STMT_TYPE,
+        CONNECTION_TYPE as STMT_TYPE,
         SECONDS_BETWEEN(START_TIME, CURRENT_TIMESTAMP) AS DURATION_S
       FROM SYS.M_CONNECTIONS
       WHERE CONNECTION_STATUS IN ('RUNNING', 'IDLE')
@@ -113,71 +154,102 @@ router.get('/health', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/lineage/:schema', async (req, res, next) => {
+router.get('/profile/:schema/:table', async (req, res, next) => {
   try {
     if (!hanaService.connection) {
       return res.status(401).json({ success: false, message: 'Not connected.' });
     }
-    const { schema } = req.params;
+    const { schema, table } = req.params;
 
-    const tablesSql = `
-      SELECT TABLE_NAME, RECORD_COUNT, TABLE_TYPE
-      FROM SYS.M_TABLES
-      WHERE SCHEMA_NAME = ?
-      ORDER BY TABLE_NAME
-    `;
+    // 1. Get Column Metadata
+    const columns = await hanaService.getColumns(schema, table);
+    if (!columns || columns.length === 0) {
+      return res.status(404).json({ success: false, message: 'Table not found or no columns.' });
+    }
 
-    const viewsSql = `
-      SELECT VIEW_NAME AS TABLE_NAME, 'VIEW' AS TABLE_TYPE
-      FROM SYS.VIEWS
-      WHERE SCHEMA_NAME = ?
-      ORDER BY VIEW_NAME
-    `;
+    // 2. Build Dynamic Aggregation Query
+    // We want: TOTAL_ROWS, for each col: NULL_COUNT, DISTINCT_COUNT, MIN_VAL, MAX_VAL
+    // Doing 4 aggs per column might be heavy for wide tables, but OK for "Profiler".
+    // We'll select COUNT(*) once, then for each col:
+    // COUNT("Col") (non-nulls), MIN("Col"), MAX("Col"). 
+    // DISTINCT is expensive, maybe skip or use separate query? Let's try basic stats first.
+    
+    // To avoid huge SQL, let's limit to top 20 columns or similar if needed? 
+    // No, let's try all. If it fails, user can see error.
+    
+    // Safety: table name is from params, columns from metadata.
+    const safeSchema = schema.replace(/"/g, '""');
+    const safeTable = table.replace(/"/g, '""');
 
-    const fkSql = `
-      SELECT
-        r.TABLE_NAME        AS SOURCE_TABLE,
-        r.REFERENCED_TABLE_NAME AS TARGET_TABLE,
-        c.COLUMN_NAME,
-        r.CONSTRAINT_NAME
-      FROM SYS.REFERENTIAL_CONSTRAINTS r
-      JOIN SYS.CONSTRAINT_COLUMNS c
-        ON c.CONSTRAINT_NAME = r.CONSTRAINT_NAME
-       AND c.SCHEMA_NAME     = r.SCHEMA_NAME
-      WHERE r.SCHEMA_NAME = ?
-      ORDER BY r.TABLE_NAME
-    `;
+    // First get total count
+    const countSql = `SELECT COUNT(*) AS TOTAL FROM "${safeSchema}"."${safeTable}"`;
+    const countRes = await hanaService.execute(countSql);
+    const totalRows = countRes[0]?.TOTAL || 0;
 
-    const [tableRows, viewRows, fkRows] = await Promise.all([
-      hanaService.execute(tablesSql, [schema]).catch(() => []),
-      hanaService.execute(viewsSql,  [schema]).catch(() => []),
-      hanaService.execute(fkSql,     [schema]).catch(() => []),
-    ]);
+    // Now loop through columns to build stats
+    // We'll do it in chunks or one big query? 
+    // One big query for Min/Max/Nulls is usually fine.
+    // Distinct count is the heavy one. Let's exclude Distinct for now to be fast, 
+    // or do it only for low-cardinality types? 
+    // User asked for "Distinct %". We need it.
+    // Let's generate individual small queries or one medium one?
+    // HANA can handle it.
+    
+    const statsPromises = columns.map(async (col) => {
+      const colName = col.COLUMN_NAME.replace(/"/g, '""');
+      // Skip BLOB/CLOB/TEXT for distinct/min/max
+      const isLob = ['BLOB', 'CLOB', 'NCLOB', 'TEXT', 'BINTEXT'].some(t => col.DATA_TYPE_NAME.includes(t));
+      
+      let sql = '';
+      if (isLob) {
+        sql = `SELECT 
+                 COUNT("${colName}") as NON_NULL_COUNT, 
+                 0 as DISTINCT_COUNT, 
+                 NULL as MIN_VAL, 
+                 NULL as MAX_VAL 
+               FROM "${safeSchema}"."${safeTable}"`;
+      } else {
+        // Use ESTIMATE for distinct if table is huge? No, user wants real profile.
+        // We'll use exact COUNT(DISTINCT).
+        sql = `SELECT 
+                 COUNT("${colName}") as NON_NULL_COUNT, 
+                 COUNT(DISTINCT "${colName}") as DISTINCT_COUNT, 
+                 MIN("${colName}") as MIN_VAL, 
+                 MAX("${colName}") as MAX_VAL 
+               FROM "${safeSchema}"."${safeTable}"`;
+      }
 
-    const nodes = [
-      ...tableRows.map(t => ({
-        id:    t.TABLE_NAME,
-        label: t.TABLE_NAME,
-        type:  'TABLE',
-        rows:  t.RECORD_COUNT || 0,
-      })),
-      ...viewRows.map(v => ({
-        id:    v.TABLE_NAME,
-        label: v.TABLE_NAME,
-        type:  'VIEW',
-        rows:  null,
-      })),
-    ];
+      try {
+        const rows = await hanaService.execute(sql);
+        const r = rows[0];
+        return {
+          column: col.COLUMN_NAME,
+          dataType: col.DATA_TYPE_NAME,
+          length: col.LENGTH,
+          nonNullCount: r.NON_NULL_COUNT,
+          distinctCount: r.DISTINCT_COUNT,
+          min: r.MIN_VAL,
+          max: r.MAX_VAL,
+          nullCount: totalRows - r.NON_NULL_COUNT
+        };
+      } catch (e) {
+        return {
+          column: col.COLUMN_NAME,
+          dataType: col.DATA_TYPE_NAME,
+          error: e.message
+        };
+      }
+    });
 
-    const links = fkRows
-      .filter(r => r.SOURCE_TABLE && r.TARGET_TABLE)
-      .map(r => ({
-        source: r.SOURCE_TABLE,
-        target: r.TARGET_TABLE,
-        column: r.COLUMN_NAME,
-      }));
+    const columnStats = await Promise.all(statsPromises);
 
-    res.json({ nodes, links });
+    res.json({
+      schema,
+      table,
+      totalRows,
+      columns: columnStats
+    });
+
   } catch (err) { next(err); }
 });
 

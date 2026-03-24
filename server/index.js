@@ -24,6 +24,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/import', importRoutes);              // ← YENİ
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/query', require('./routes/query'));
 
 // Health Check
 app.get('/', (req, res) => {

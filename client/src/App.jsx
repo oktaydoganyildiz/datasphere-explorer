@@ -7,10 +7,11 @@ import PreviewModal from './components/PreviewModal';
 import Dashboard from './components/Dashboard';
 import AiQueryBuilder from './components/AiQueryBuilder';
 import HealthMonitor from './components/HealthMonitor';
-import SchemaDiff from './components/SchemaDiff';
 import CsvImport from './components/CsvImport';
 import QueryHistory from './components/QueryHistory';
 import PageTransition from './components/PageTransition';
+import QueryPlayground from './components/QueryPlayground';
+import ColumnProfiler from './components/ColumnProfiler';
 
 const appStyles = `
 @keyframes connectionFormIn {
@@ -36,15 +37,16 @@ const TAB_META = {
   explorer:     { title: 'Data Explorer',     desc: 'Şemalar, tablolar ve veri önizleme.' },
   health:       { title: 'Health Monitor',    desc: 'CPU, bellek, disk ve aktif bağlantılar.' },
   ai:           { title: 'AI Assistant',      desc: 'Doğal dil ile SQL üret ve analiz yap.' },
-  schemadiff:   { title: 'Schema Diff',       desc: 'İki şema arasındaki farkları karşılaştır.' },
   csvimport:    { title: 'CSV Import',         desc: 'CSV dosyasını HANA\'ya tablo olarak aktar.' },
   queryhistory: { title: 'Query History',     desc: 'Geçmiş sorgularını görüntüle ve yönet.' },
+  playground:   { title: 'Query Playground', desc: 'SQL sorgularını doğrudan çalıştır.' },
 };
 
 function App() {
   const { isConnected, reset } = useConnectionStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previewTarget, setPreviewTarget] = useState(null);
+  const [profilerTarget, setProfilerTarget] = useState(null);
 
   const handleDisconnect = async () => {
     try { await fetch('/api/connection/disconnect', { method: 'POST' }); } catch {}
@@ -72,12 +74,12 @@ function App() {
           {isConnected ? (
             <PageTransition animKey={activeTab}>
               {activeTab === 'dashboard'    && <Dashboard />}
-              {activeTab === 'explorer'     && <TableList onPreview={(s, t) => setPreviewTarget({ schema: s, table: t })} />}
+              {activeTab === 'explorer'     && <TableList onPreview={(s, t) => setPreviewTarget({ schema: s, table: t })} onProfile={(s, t) => setProfilerTarget({ schema: s, table: t })} />}
               {activeTab === 'health'       && <HealthMonitor />}
               {activeTab === 'ai'           && <div className="max-w-3xl mx-auto mt-6"><AiQueryBuilder /></div>}
-              {activeTab === 'schemadiff'   && <SchemaDiff />}
               {activeTab === 'csvimport'    && <CsvImport />}
               {activeTab === 'queryhistory' && <QueryHistory />}
+              {activeTab === 'playground'   && <QueryPlayground />}
             </PageTransition>
           ) : (
             <div className="connection-form-enter"><ConnectionForm /></div>
@@ -90,6 +92,14 @@ function App() {
           schema={previewTarget.schema}
           table={previewTarget.table}
           onClose={() => setPreviewTarget(null)}
+        />
+      )}
+
+      {profilerTarget && (
+        <ColumnProfiler
+          schema={profilerTarget.schema}
+          table={profilerTarget.table}
+          onClose={() => setProfilerTarget(null)}
         />
       )}
     </div>

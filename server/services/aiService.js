@@ -8,10 +8,9 @@ class AiService {
 
   // Initialize with API Key (we'll pass this from the request to avoid storing it)
   init(apiKey) {
-    // Specifying apiVersion: 'v1' often resolves 404 errors with newer models
     const genAI = new GoogleGenerativeAI(apiKey); 
     this.model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-flash-latest",
     });
   }
 

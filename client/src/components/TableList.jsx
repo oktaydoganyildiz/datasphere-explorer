@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Table as TableIcon, Eye, Download } from 'lucide-react';
+import { Search, Table as TableIcon, Eye, Download, BarChart2 } from 'lucide-react';
 import useConnectionStore from '../store/connectionStore';
 import { TableRowSkeleton } from './Skeleton';
 import { FadeScaleIn } from './PageTransition';

@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Table,
   Activity,
-  GitCompare,
   Upload,
   Clock,
   ChevronLeft,
@@ -11,6 +10,7 @@ import {
   Database,
   Sparkles,
   LogOut,
+  Terminal,
 } from 'lucide-react';
 import useConnectionStore from '../store/connectionStore';
 import ThemeToggle from './ThemeToggle';
@@ -21,7 +21,7 @@ const NAV = [
   { id: 'health',       label: 'Health Monitor', icon: Activity },
   { id: 'ai',           label: 'AI Assistant',   icon: Sparkles },
   { divider: true },
-  { id: 'schemadiff',   label: 'Schema Diff',    icon: GitCompare },
+  { id: 'playground',   label: 'Query Playground', icon: Terminal },
   { id: 'csvimport',    label: 'CSV Import',     icon: Upload },
   { id: 'queryhistory', label: 'Query History',  icon: Clock },
 ];

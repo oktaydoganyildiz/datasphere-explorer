@@ -26,7 +26,14 @@ class ExportService {
 
     // Add Data
     rows.forEach(row => {
-      sheet.addRow(row);
+      const safeRow = {};
+      columns.forEach(col => {
+        const key = col.COLUMN_NAME;
+        safeRow[key] = row[key] !== undefined ? row[key] :
+                       row[key.toLowerCase()] !== undefined ? row[key.toLowerCase()] :
+                       null;
+      });
+      sheet.addRow(safeRow);
     });
 
     return workbook.xlsx.writeBuffer();
