@@ -71,9 +71,19 @@ class HanaService {
     });
   }
 
-  // Get Schemas
+  // Get Schemas (only those with tables or views)
   async getSchemas() {
-    const sql = `SELECT SCHEMA_NAME FROM SYS.SCHEMAS WHERE SCHEMA_OWNER != '_SYS_REPO' ORDER BY SCHEMA_NAME`;
+    const sql = `
+      SELECT SCHEMA_NAME 
+      FROM SYS.SCHEMAS 
+      WHERE SCHEMA_OWNER != '_SYS_REPO' 
+        AND SCHEMA_NAME IN (
+          SELECT SCHEMA_NAME FROM SYS.M_TABLES WHERE SCHEMA_NAME IS NOT NULL
+          UNION
+          SELECT SCHEMA_NAME FROM SYS.VIEWS WHERE SCHEMA_NAME IS NOT NULL
+        )
+      ORDER BY SCHEMA_NAME
+    `;
     return this.execute(sql);
   }
 

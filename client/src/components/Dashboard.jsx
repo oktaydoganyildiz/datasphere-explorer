@@ -128,97 +128,122 @@ const AnimatedDataLoads = ({ loads }) => (
   <SlideUpIn delay={800}>
     <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
       <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Recent Data Loads</h3>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm text-left">
-          <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-slate-900/50">
-            <tr>
-              <th className="px-4 py-3 rounded-l-md">Task Name</th>
-              <th className="px-4 py-3">Time</th>
-              <th className="px-4 py-3 rounded-r-md text-right">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-            {loads.map((load, index) => (
-              <tr
-                key={index}
-                className="row-hover hover:bg-gray-50 dark:hover:bg-slate-700/30"
-                style={{
-                  opacity: 0,
-                  animation: `staggerChild 0.4s cubic-bezier(0.16,1,0.3,1) ${800 + index * 80}ms both`,
-                }}
-              >
-                <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{load.task}</td>
-                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 flex items-center">
-                  <Clock className="w-3 h-3 mr-1.5" />
-                  {load.time}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    load.status === 'success'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                  }`}>
-                    {load.status === 'success'
-                      ? <CheckCircle className="w-3 h-3 mr-1" />
-                      : <XCircle className="w-3 h-3 mr-1" />
-                    }
-                    {load.status === 'success' ? 'Success' : 'Failed'}
-                  </span>
-                </td>
+      {loads?.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left">
+            <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-slate-900/50">
+              <tr>
+                <th className="px-4 py-3 rounded-l-md">Task Name</th>
+                <th className="px-4 py-3">Object ID</th>
+                <th className="px-4 py-3">Activity</th>
+                <th className="px-4 py-3">Time</th>
+                <th className="px-4 py-3">Duration</th>
+                <th className="px-4 py-3">Triggered By</th>
+                <th className="px-4 py-3 rounded-r-md text-right">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {loads.map((load, index) => {
+                const isSuccess = load.status === 'success';
+                const isFailed = load.status === 'failed';
+                const isRunning = load.status === 'running';
+                const statusCls = isSuccess
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                  : isFailed
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+
+                const IconEl = isSuccess
+                  ? CheckCircle
+                  : isFailed
+                    ? XCircle
+                    : Activity;
+
+                const label = isSuccess ? 'Success' : isFailed ? 'Failed' : 'Running';
+
+                return (
+                  <tr
+                    key={index}
+                    className="row-hover hover:bg-gray-50 dark:hover:bg-slate-700/30"
+                    style={{
+                      opacity: 0,
+                      animation: `staggerChild 0.4s cubic-bezier(0.16,1,0.3,1) ${800 + index * 80}ms both`,
+                    }}
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{load.task}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.objectId}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.activity}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 flex items-center">
+                      <Clock className="w-3 h-3 mr-1.5" />
+                      {load.time}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.duration}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.triggeredBy}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusCls}`}>
+                        <IconEl className="w-3 h-3 mr-1" />
+                        {label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          No recent data load records found.
+        </div>
+      )}
     </div>
   </SlideUpIn>
 );
 
-const MOCK_TOP_TABLES = [
-  { name: 'SALES_DATA', rows: 1250000 },
-  { name: 'LOGS_2023', rows: 850000 },
-  { name: 'CUSTOMER_DIM', rows: 450000 },
-  { name: 'PRODUCT_MD', rows: 120000 },
-  { name: 'INVOICES', rows: 95000 },
-];
-
-const MOCK_OBJECT_DISTRIBUTION = [
-  { name: 'Local Tables', value: 45 },
-  { name: 'Remote Tables', value: 12 },
-  { name: 'Views', value: 28 },
-  { name: 'Data Flows', value: 8 },
-];
-
-const MOCK_DATA_LOADS = [
-  { task: 'Daily Sales Import', time: '10:30 AM', status: 'success' },
-  { task: 'Inventory Sync', time: '09:15 AM', status: 'success' },
-  { task: 'Customer CRM Update', time: '08:45 AM', status: 'failed' },
-  { name: 'Logs Archiving', time: '02:00 AM', status: 'success' },
-  { task: 'Currency Rates Fetch', time: '01:30 AM', status: 'success' },
-];
-
 const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'];
 
 const Dashboard = () => {
+  const { selectedSchema, schemas, setSelectedSchema } = useConnectionStore();
   const [stats, setStats] = useState(null);
+  const [recentDataLoads, setRecentDataLoads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const activeConns = useAnimatedCounter(stats?.activeConnections ?? 0, 1000, 600);
+
+  const schemaOptions = ['SYS', ...(schemas || [])].filter(Boolean);
+  const currentSchema = selectedSchema || schemaOptions[0] || 'SYS';
+
+  const topTablesData = (stats?.topTables || [])
+    .map(t => ({
+      name: t.TABLE_NAME || t.name,
+      rows: typeof t.RECORD_COUNT === 'number' ? t.RECORD_COUNT : parseInt(t.RECORD_COUNT || 0, 10),
+    }))
+    .filter(t => t.name);
+
+  const objectDistributionData = [
+    { name: 'Tables', value: stats?.totalTables || 0 },
+    { name: 'Views', value: stats?.totalViews || 0 },
+  ].filter(x => x.value > 0);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/stats/dashboard');
+        const res = await fetch(`/api/stats/dashboard?schema=${encodeURIComponent(currentSchema)}`);
         const data = await res.json();
         console.log('Dashboard stats:', data);
         setStats(data);
+        if (!initialLoadDone) {
+          setRecentDataLoads(data.recentDataLoads || []);
+          setInitialLoadDone(true);
+        }
       } catch {
-        setStats({ totalTables: 0, totalViews: 0, schema: 'UNKNOWN', topTables: [], activeConnections: 0, recentDataLoads: [] });
+        setStats({ totalTables: 0, totalViews: 0, schema: 'UNKNOWN', topTables: [], activeConnections: 0, recentDataLoads: [], storage: { pct: 0, usedGb: 0, totalGb: 0 } });
       } finally {
         setLoading(false);
       }
     };
     fetchStats();
-  }, []);
+  }, [currentSchema]);
 
   const formatYAxis = (v) => {
     if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
@@ -248,6 +273,24 @@ const Dashboard = () => {
       </FadeScaleIn>
 
       {/* KPI cards with staggered entrance */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Schema</div>
+          <select
+            className="p-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-800 dark:text-white transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            value={currentSchema}
+            onChange={(e) => setSelectedSchema(e.target.value)}
+            aria-label="Schema select"
+          >
+            {schemaOptions.map(s => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <AnimatedStatCard title="Total Tables"   value={stats.totalTables} icon={Table}    color="bg-blue-500"    delay={0} />
         <AnimatedStatCard title="Total Views"    value={stats.totalViews}  icon={Eye}      color="bg-purple-500"  delay={100} />
@@ -255,7 +298,7 @@ const Dashboard = () => {
       </div>
 
       {/* Storage bar */}
-      <AnimatedProgressBar percentage={82} />
+      <AnimatedProgressBar percentage={stats.storage?.pct ?? 0} />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -264,7 +307,7 @@ const Dashboard = () => {
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6">Largest Tables (Rows)</h3>
             <div className="flex-1 w-full min-h-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={MOCK_TOP_TABLES} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                <BarChart data={topTablesData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
                   <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tickFormatter={formatYAxis} tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -283,7 +326,7 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={MOCK_OBJECT_DISTRIBUTION}
+                    data={objectDistributionData}
                     cx="50%" cy="50%"
                     innerRadius={80} outerRadius={120}
                     paddingAngle={5}
@@ -291,7 +334,7 @@ const Dashboard = () => {
                     animationBegin={400}
                     animationDuration={1000}
                   >
-                    {MOCK_OBJECT_DISTRIBUTION.map((_, index) => (
+                    {objectDistributionData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -311,7 +354,7 @@ const Dashboard = () => {
       </div>
 
       {/* Data loads table */}
-      <AnimatedDataLoads loads={stats.recentDataLoads?.length > 0 ? stats.recentDataLoads : MOCK_DATA_LOADS} />
+      <AnimatedDataLoads loads={recentDataLoads} />
     </div>
   );
 };

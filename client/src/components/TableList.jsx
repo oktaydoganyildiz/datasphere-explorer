@@ -40,7 +40,7 @@ if (!document.querySelector('#tablelist-anim-styles')) {
   document.head.appendChild(s);
 }
 
-const TableList = ({ onPreview }) => {
+const TableList = ({ onPreview, onProfile }) => {
   const { selectedSchema, schemas, setSelectedSchema, tables, setTables } = useConnectionStore();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -186,6 +186,13 @@ const TableList = ({ onPreview }) => {
                         title="Preview Data"
                       >
                         <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onProfile?.(selectedSchema, t.TABLE_NAME)}
+                        className="action-icon-btn text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300 inline-flex items-center"
+                        title="Profile Columns"
+                      >
+                        <BarChart2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDownload(selectedSchema, t.TABLE_NAME)}

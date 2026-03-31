@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
-import { Activity, Cpu, HardDrive, Database, RefreshCw, AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react';
+import { RadialBarChart, RadialBar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { Activity, Cpu, HardDrive, Database, RefreshCw, AlertTriangle, CheckCircle, Clock, Zap, Server, AlertCircle, Play, Calendar, Lock } from 'lucide-react';
 import { FadeScaleIn, SlideUpIn } from './PageTransition';
 import { StatCardSkeleton } from './Skeleton';
 
@@ -78,8 +78,13 @@ const HealthMonitor = () => {
     cpu:  { pct: 38 },
     mem:  { pct: 61, usedGb: 9.8, totalGb: 16 },
     disk: { pct: 47, usedGb: 188, totalGb: 400 },
+    diskDetails: [],
     connections: [],
     expensiveStatements: [],
+    taskLogs: [],
+    taskSchedules: [],
+    taskErrors: [],
+    taskLocks: [],
   };
 
   const fetchHealth = useCallback(async (silent = false) => {
@@ -238,6 +243,194 @@ const HealthMonitor = () => {
                 </tr>
               )) : (
                 <tr><td colSpan={3} className="px-4 py-8 text-center text-xs text-gray-400">Sorgu kaydı yok</td></tr>
+              )}
+            </tbody>
+          </table>
+          </div>
+        </SlideUpIn>
+
+      <SlideUpIn delay={550}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Server className="w-4 h-4 text-purple-500" />Disk Detayları
+            </h3>
+            <span className="text-xs text-gray-400">SYS.M_DISKS</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Volume</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tip</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kullanılan</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Toplam</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">%</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {data?.diskDetails?.length > 0 ? data.diskDetails.map((d, i) => (
+                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
+                  <td className="px-4 py-2.5 text-xs font-mono text-gray-700 dark:text-gray-300">{d.VOLUME_ID}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{d.FILE_TYPE}</td>
+                  <td className="px-4 py-2.5 text-xs text-right text-gray-700 dark:text-gray-300">{d.USED_GB} GB</td>
+                  <td className="px-4 py-2.5 text-xs text-right text-gray-500 dark:text-gray-400">{d.TOTAL_GB} GB</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      d.USAGE_PCT >= 90 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      d.USAGE_PCT >= 75 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    }`}>{d.USAGE_PCT}%</span>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Disk verisi yok</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SlideUpIn>
+
+      <SlideUpIn delay={600}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Play className="w-4 h-4 text-blue-500" />Görev Performansı (PEAK CPU/MEMORY)
+            </h3>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOGS_V_EXT</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aktivite</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Durum</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Başlangıç</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Süre</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PEAK CPU</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PEAK MEM</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {data?.taskLogs?.length > 0 ? data.taskLogs.map((t, i) => (
+                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
+                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{t.TASK_NAME}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{t.ACTIVITY || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      t.STATUS === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                      t.STATUS === 'FAILED' || t.STATUS === 'ERROR' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                    }`}>{t.STATUS}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{t.START_TIME ? new Date(t.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-right text-gray-500 dark:text-gray-400">{t.DURATION_SEC ? `${t.DURATION_SEC}s` : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-right font-mono text-gray-700 dark:text-gray-300">{t.PEAK_CPU || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-right font-mono text-gray-700 dark:text-gray-300">{t.PEAK_MEMORY || '-'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-xs text-gray-400">Görev kaydı yok</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SlideUpIn>
+
+      <SlideUpIn delay={650}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-green-500" />Zamanlanmış Görevler
+            </h3>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_SCHEDULES_V_EXT</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Schedule</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sahip</th>
+              <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aktif</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sonraki Çalışma</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {data?.taskSchedules?.length > 0 ? data.taskSchedules.map((s, i) => (
+                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
+                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{s.TASK_NAME}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 font-mono">{s.SCHEDULE_STRING || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{s.OWNER || '-'}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      s.IS_ENABLED ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
+                    }`}>{s.IS_ENABLED ? 'Aktif' : 'Pasif'}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{s.NEXT_RUN_TIME ? new Date(s.NEXT_RUN_TIME).toLocaleString('tr-TR') : '-'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Zamanlanmış görev yok</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SlideUpIn>
+
+      <SlideUpIn delay={700}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />Hata Alan Görevler
+            </h3>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOG_MESSAGES_V_EXT</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Object ID</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tarih</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Hata Mesajı</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {data?.taskErrors?.length > 0 ? data.taskErrors.map((e, i) => (
+                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
+                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{e.TASK_NAME}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{e.OBJECT_ID || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{e.START_TIME ? new Date(e.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-red-600 dark:text-red-400 max-w-xs truncate" title={e.TEXT}>{e.TEXT || '-'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-xs text-gray-400">Hata kaydı yok</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SlideUpIn>
+
+      <SlideUpIn delay={750}>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <Lock className="w-4 h-4 text-orange-500" />Kilitli Çalışan Görevler
+            </h3>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOCKS_V_EXT</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Object ID</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kilit Durumu</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kullanıcı</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Başlangıç</th>
+            </tr></thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+              {data?.taskLocks?.length > 0 ? data.taskLocks.map((l, i) => (
+                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
+                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{l.TASK_NAME}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.OBJECT_ID || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      l.LOCK_STATUS === 'LOCKED' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                    }`}>{l.LOCK_STATUS || '-'}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.USER_NAME || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.START_TIME ? new Date(l.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Kilitli görev yok</td></tr>
               )}
             </tbody>
           </table>
