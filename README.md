@@ -2,7 +2,7 @@
 
 A modern, full-stack web application designed to connect to **SAP DataSphere** or **HANA Cloud**, providing an intuitive interface for data exploration, visualization, and AI-powered querying.
 
-Created by **Oktay Doğanyıldız**.
+
 
 ---
 
@@ -40,7 +40,7 @@ Created by **Oktay Doğanyıldız**.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/datasphere-explorer.git
+    git clone https://github.com/oktaydoganyildiz/datasphere-explorer.git
     cd datasphere-explorer
     ```
 
@@ -86,4 +86,4 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
 
-**Developed with ❤️ by Oktay Doğanyıldız**
+
