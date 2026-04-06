@@ -6,6 +6,19 @@ class HanaService {
     this.currentConfig = null;
   }
 
+  /**
+   * Validate that the given name is a safe SQL identifier (schema or table).
+   * Allows letters, digits, and underscore, and requires it to start with a letter or underscore.
+   */
+  isSafeIdentifier(name) {
+    if (typeof name !== 'string') {
+      return false;
+    }
+    // Adjust pattern if you need to allow more characters, but keep it strict for safety
+    const IDENTIFIER_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    return IDENTIFIER_REGEX.test(name);
+  }
+
   // Connect to HANA
   async connect(config) {
     // If already connected to the same config, return success

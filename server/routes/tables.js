@@ -34,6 +34,12 @@ router.get('/:schema', checkConnection, async (req, res, next) => {
 router.get('/:schema/:table/preview', checkConnection, async (req, res, next) => {
   try {
     const { schema, table } = req.params;
+
+    // Validate schema and table to prevent SQL injection via identifiers
+    if (!hanaService.isSafeIdentifier(schema) || !hanaService.isSafeIdentifier(table)) {
+      return res.status(400).json({ success: false, message: 'Invalid schema or table name.' });
+    }
+
     const data = await hanaService.getPreview(schema, table);
     let columns = await hanaService.getColumns(schema, table);
 
