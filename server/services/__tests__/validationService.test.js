@@ -38,5 +38,52 @@ describe('validationService', () => {
       const result = validationService.validateHost('db.example.com');
       expect(result.valid).toBe(true);
     });
+
+    test('should reject single-label domain without localhost', () => {
+      const result = validationService.validateHost('servername');
+      expect(result.valid).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test('should reject domain with single-letter TLD', () => {
+      const result = validationService.validateHost('example.a');
+      expect(result.valid).toBe(false);
+    });
+
+    test('should accept domain with 2-letter TLD', () => {
+      const result = validationService.validateHost('example.co');
+      expect(result.valid).toBe(true);
+    });
+
+    test('should reject domain with trailing dot', () => {
+      const result = validationService.validateHost('example.com.');
+      expect(result.valid).toBe(false);
+    });
+
+    test('should reject domain with leading dot', () => {
+      const result = validationService.validateHost('.example.com');
+      expect(result.valid).toBe(false);
+    });
+
+    test('should accept domain with uppercase letters', () => {
+      const result = validationService.validateHost('Example.COM');
+      expect(result.valid).toBe(true);
+    });
+
+    test('should reject null input', () => {
+      const result = validationService.validateHost(null);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test('should reject undefined input', () => {
+      const result = validationService.validateHost(undefined);
+      expect(result.valid).toBe(false);
+    });
+
+    test('should reject number input', () => {
+      const result = validationService.validateHost(12345);
+      expect(result.valid).toBe(false);
+    });
   });
 });
