@@ -172,6 +172,29 @@ class HanaService {
     );
   }
 
+  // Helper: Check if identifier is safe (schema/table names)
+  // Prevents SQL injection for identifiers
+  isSafeIdentifier(identifier) {
+    if (!identifier || typeof identifier !== 'string') {
+      return false;
+    }
+
+    // Check length (HANA limit is 255)
+    if (identifier.length > 255) {
+      return false;
+    }
+
+    // Check for empty or whitespace-only
+    if (identifier.trim().length === 0) {
+      return false;
+    }
+
+    // Allow alphanumeric, underscores, and hyphens
+    // Must start with letter or underscore
+    const validIdentifierRegex = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
+    return validIdentifierRegex.test(identifier);
+  }
+
   // Helper: Parse Error
   parseError(err) {
     // Simplified error parsing

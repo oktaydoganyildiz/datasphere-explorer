@@ -10,6 +10,11 @@ router.get('/dashboard', async (req, res, next) => {
     const config = hanaService.currentConfig;
     const schema = req.query.schema || config.schema || 'SYS';
 
+    // Validate schema parameter
+    if (!hanaService.isSafeIdentifier(schema)) {
+      return res.status(400).json({ success: false, message: 'Invalid schema name.' });
+    }
+
     const statsSql = `
       SELECT 'TABLE' as TYPE, COUNT(*) as COUNT FROM SYS.M_TABLES WHERE SCHEMA_NAME = ?
       UNION ALL
@@ -119,6 +124,11 @@ router.get('/lineage/:schema', async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not connected.' });
     }
     const { schema } = req.params;
+
+    // Validate schema parameter
+    if (!hanaService.isSafeIdentifier(schema)) {
+      return res.status(400).json({ success: false, message: 'Invalid schema name.' });
+    }
 
     const tablesSql = `
       SELECT TABLE_NAME, RECORD_COUNT, TABLE_TYPE

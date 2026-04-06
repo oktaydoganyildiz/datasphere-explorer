@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const hanaService = require('../services/hanaService');
+const { validateHost } = require('../services/validationService');
 
 // Test Connection
 router.post('/connect', async (req, res, next) => {
@@ -8,6 +9,18 @@ router.post('/connect', async (req, res, next) => {
     const { host, port, user, password } = req.body;
     if (!host || !port || !user || !password) {
       return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+
+    // Validate host parameter
+    const hostValidation = validateHost(host);
+    if (!hostValidation.valid) {
+      return res.status(400).json({ success: false, message: hostValidation.error });
+    }
+
+    // Validate port (must be a number between 1 and 65535)
+    const portNum = parseInt(port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      return res.status(400).json({ success: false, message: 'Port must be a number between 1 and 65535.' });
     }
 
     const result = await hanaService.connect({ host, port, user, password });

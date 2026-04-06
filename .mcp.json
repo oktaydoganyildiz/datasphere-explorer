@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "ruflo": {
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "ruflo@latest",
+        "mcp",
+        "start",
+        "--skills",
+        "brainstorming,coding,filesystem,testing"
+      ]
+    }
+  }
+}

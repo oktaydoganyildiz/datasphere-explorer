@@ -1,57 +1,73 @@
 const express = require('express');
 const router = express.Router();
+const hanaService = require('../services/hanaService');
 
 /**
  * POST /api/import/csv
  * Body: { schema, tableName, headers, types, rows }
  */
-router.post('/csv', async (req, res) => {
-  const conn = req.app.locals.hanaConnection;
-  if (!conn) return res.status(503).json({ success: false, message: 'HANA bağlantısı yok' });
-
-  const { schema, tableName, headers, types, rows } = req.body;
-
-  if (!schema || !tableName || !headers?.length || !rows?.length) {
-    return res.status(400).json({ success: false, message: 'Eksik parametre' });
-  }
-
-  const fullName = `"${schema}"."${tableName}"`;
-
+router.post('/csv', async (req, res, next) => {
   try {
-    // Sütun tanımları
+    if (!hanaService.connection) {
+      return res.status(401).json({ success: false, message: 'Not connected to HANA.' });
+    }
+
+    const { schema, tableName, headers, types, rows } = req.body;
+
+    if (!schema || !tableName || !headers?.length || !rows?.length) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters.' });
+    }
+
+    // Validate schema and table name
+    if (!hanaService.isSafeIdentifier(schema) || !hanaService.isSafeIdentifier(tableName)) {
+      return res.status(400).json({ success: false, message: 'Invalid schema or table name.' });
+    }
+
+    // Validate headers
+    if (!Array.isArray(headers) || headers.some(h => !hanaService.isSafeIdentifier(h))) {
+      return res.status(400).json({ success: false, message: 'Invalid column names.' });
+    }
+
+    const safeSchema = schema.replace(/"/g, '""');
+    const safeTable = tableName.replace(/"/g, '""');
+    const fullName = `"${safeSchema}"."${safeTable}"`;
+
+    // Column definitions with validated headers
     const colDefs = headers
-      .map((h, i) => `"${h.replace(/"/g, '')}" ${types[i] || 'NVARCHAR(255)'}`)
+      .map((h, i) => {
+        const safeHeader = h.replace(/"/g, '""');
+        const type = types?.[i] || 'NVARCHAR(255)';
+        return `"${safeHeader}" ${type}`;
+      })
       .join(', ');
 
-    // Tabloyu oluştur (zaten varsa DROP et)
-    await execSQL(conn, `DROP TABLE ${fullName}`).catch(() => {});
-    await execSQL(conn, `CREATE COLUMN TABLE ${fullName} (${colDefs})`);
+    // Drop existing table if it exists
+    try {
+      await hanaService.execute(`DROP TABLE ${fullName}`);
+    } catch (err) {
+      // Ignore if table doesn't exist
+    }
 
-    // Toplu INSERT (100'erlik batch)
-    const BATCH = 100;
+    // Create new table
+    await hanaService.execute(`CREATE COLUMN TABLE ${fullName} (${colDefs})`);
+
+    // Batch insert (100 rows per batch)
+    const BATCH_SIZE = 100;
     let inserted = 0;
 
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
       const placeholders = batch.map(() => `(${headers.map(() => '?').join(',')})`).join(',');
       const values = batch.flat();
-      await execSQL(conn, `INSERT INTO ${fullName} VALUES ${placeholders}`, values);
+
+      await hanaService.execute(`INSERT INTO ${fullName} VALUES ${placeholders}`, values);
       inserted += batch.length;
     }
 
     res.json({ success: true, rowsInserted: inserted, tableName });
   } catch (err) {
-    console.error('[CSV Import]', err);
-    res.status(500).json({ success: false, message: err.message });
+    next(err);
   }
 });
-
-const execSQL = (conn, sql, params = []) =>
-  new Promise((resolve, reject) => {
-    conn.exec(sql, params, (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
-    });
-  });
 
 module.exports = router;
