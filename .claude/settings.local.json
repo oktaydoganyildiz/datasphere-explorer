@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "Bash(npm run:*)",
+      "Bash(node -c server/services/hanaService.js)",
+      "Bash(node -c server/routes/import.js)",
+      "Bash(node -c server/routes/connection.js)",
+      "Bash(node -c server/routes/stats.js)",
+      "Bash(node -c server/routes/ai.js)",
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "ruflo"
+  ]
+}

@@ -11,6 +11,11 @@ router.get('/:schema/:table', async (req, res, next) => {
     }
 
     const { schema, table } = req.params;
+
+    // Validate schema and table to prevent SQL injection via identifiers
+    if (!hanaService.isSafeIdentifier(schema) || !hanaService.isSafeIdentifier(table)) {
+      return res.status(400).json({ success: false, message: 'Invalid schema or table name.' });
+    }
     
     // Get Data (Limit to 10k for MVP safety)
     // Note: Ideally, this should be streamed or paginated for larger datasets

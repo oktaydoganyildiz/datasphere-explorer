@@ -14,6 +14,14 @@ router.post('/generate-sql', async (req, res, next) => {
     if (!hanaService.connection) {
        return res.status(400).json({ success: false, message: "Connect to database first." });
     }
+    if (!schema) {
+      return res.status(400).json({ success: false, message: "Schema is required." });
+    }
+
+    // Validate schema parameter
+    if (!hanaService.isSafeIdentifier(schema)) {
+      return res.status(400).json({ success: false, message: "Invalid schema name." });
+    }
 
     // Initialize AI
     aiService.init(apiKey);
