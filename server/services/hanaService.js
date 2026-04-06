@@ -120,15 +120,41 @@ class HanaService {
     return this.execute(sql);
   }
 
-  // Get Column Metadata (with Synonym support)
+  // Get Column Metadata (with Synonym support and cycle detection)
   async getColumns(schema, table) {
+    const visited = new Set();
+    return this._getColumnsRecursive(schema, table, visited);
+  }
+
+  // Private recursive method with cycle detection
+  async _getColumnsRecursive(schema, table, visited, depth = 0) {
+    // Prevent infinite recursion (max 10 levels)
+    const MAX_RECURSION_DEPTH = 10;
+    if (depth > MAX_RECURSION_DEPTH) {
+      console.warn(`Maximum recursion depth exceeded for ${schema}.${table}`);
+      return [];
+    }
+
+    // Cycle detection: key is "schema.table"
+    const key = `${schema}.${table}`;
+    if (visited.has(key)) {
+      console.warn(`Circular synonym reference detected for ${key}`);
+      return [];
+    }
+    visited.add(key);
+
     // 1. Check if it's a Synonym first
     try {
       const synonymSql = `SELECT BASE_SCHEMA_NAME, BASE_OBJECT_NAME FROM SYS.SYNONYMS WHERE SCHEMA_NAME = ? AND SYNONYM_NAME = ?`;
       const synonym = await this.execute(synonymSql, [schema, table]);
       if (synonym && synonym.length > 0) {
         // Resolve synonym and get columns for the base object
-        return this.getColumns(synonym[0].BASE_SCHEMA_NAME, synonym[0].BASE_OBJECT_NAME);
+        return this._getColumnsRecursive(
+          synonym[0].BASE_SCHEMA_NAME,
+          synonym[0].BASE_OBJECT_NAME,
+          visited,
+          depth + 1
+        );
       }
     } catch (e) {
       // Ignore and continue
@@ -137,9 +163,9 @@ class HanaService {
     // 2. Try TABLE_COLUMNS (covers physical and virtual tables)
     try {
       const sqlTable = `
-        SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE 
-        FROM SYS.TABLE_COLUMNS 
-        WHERE SCHEMA_NAME = ? AND TABLE_NAME = ? 
+        SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE
+        FROM SYS.TABLE_COLUMNS
+        WHERE SCHEMA_NAME = ? AND TABLE_NAME = ?
         ORDER BY POSITION
       `;
       const tableCols = await this.execute(sqlTable, [schema, table]);
@@ -149,9 +175,9 @@ class HanaService {
     // 3. Try VIEW_COLUMNS
     try {
       const sqlView = `
-        SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE 
-        FROM SYS.VIEW_COLUMNS 
-        WHERE SCHEMA_NAME = ? AND VIEW_NAME = ? 
+        SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE
+        FROM SYS.VIEW_COLUMNS
+        WHERE SCHEMA_NAME = ? AND VIEW_NAME = ?
         ORDER BY POSITION
       `;
       const viewCols = await this.execute(sqlView, [schema, table]);

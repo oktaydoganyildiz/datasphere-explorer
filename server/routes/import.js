@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const hanaService = require('../services/hanaService');
+const { validateColumnType } = require('../services/validationService');
 
 /**
  * POST /api/import/csv
@@ -26,6 +27,18 @@ router.post('/csv', async (req, res, next) => {
     // Validate headers
     if (!Array.isArray(headers) || headers.some(h => !hanaService.isSafeIdentifier(h))) {
       return res.status(400).json({ success: false, message: 'Invalid column names.' });
+    }
+
+    // Validate column types against allowlist to prevent SQL injection
+    if (types && Array.isArray(types)) {
+      for (let i = 0; i < types.length; i++) {
+        if (types[i]) {
+          const typeValidation = validateColumnType(types[i]);
+          if (!typeValidation.valid) {
+            return res.status(400).json({ success: false, message: `Invalid column type at index ${i}: ${typeValidation.error}` });
+          }
+        }
+      }
     }
 
     const safeSchema = schema.replace(/"/g, '""');

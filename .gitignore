@@ -41,3 +41,11 @@ coverage/
 # Temp files
 tmp/
 temp/
+
+# Local machine-specific configurations
+.claude/settings.local.json
+.mcp.json
+
+# IDE and editor specific
+.vscode/launch.json
+.vscode/settings.json
