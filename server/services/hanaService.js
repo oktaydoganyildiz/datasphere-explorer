@@ -18,12 +18,22 @@ class HanaService {
       await this.disconnect();
     }
 
+    const sslValidateCertificate = (() => {
+      if (typeof config.sslValidateCertificate === 'boolean') {
+        return config.sslValidateCertificate;
+      }
+      if (typeof process.env.HANA_SSL_VALIDATE_CERT === 'string') {
+        return process.env.HANA_SSL_VALIDATE_CERT.toLowerCase() !== 'false';
+      }
+      return true;
+    })();
+
     const connParams = {
       serverNode: `${config.host}:${config.port}`,
       uid: config.user,
       pwd: config.password,
       encrypt: 'true', // Required for HANA Cloud/DataSphere
-      sslValidateCertificate: 'false', // Often needed for dev/self-signed
+      sslValidateCertificate: sslValidateCertificate ? 'true' : 'false',
       connectTimeout: 10000
     };
 
@@ -34,7 +44,11 @@ class HanaService {
           console.error('HANA Connection Error:', err);
           return reject(this.parseError(err));
         }
-        this.currentConfig = config;
+        this.currentConfig = {
+          host: config.host,
+          port: config.port,
+          user: config.user
+        };
         resolve({ success: true, message: 'Connected to HANA successfully' });
       });
     });
@@ -71,18 +85,26 @@ class HanaService {
     });
   }
 
-  // Get Schemas (including tables, views, virtual tables, and synonyms)
+  // Get Schemas - DataSphere user spaces (schemas that have sub-schemas with #)
   async getSchemas() {
     const sql = `
-      SELECT SCHEMA_NAME 
-      FROM SYS.SCHEMAS 
-      WHERE SCHEMA_OWNER NOT IN ('_SYS_REPO', '_SYS_STATISTICS')
+      SELECT DISTINCT s.SCHEMA_NAME
+      FROM SYS.SCHEMAS s
+      WHERE s.SCHEMA_NAME NOT LIKE '%#%'
+        AND s.SCHEMA_NAME NOT LIKE '%$%'
+        AND s.SCHEMA_NAME NOT LIKE '\\_%' ESCAPE '\\'
+        AND s.SCHEMA_NAME NOT LIKE 'DWC_RT_%'
+        AND s.SCHEMA_NAME NOT LIKE 'DWCDBUSER%'
+        AND s.SCHEMA_NAME NOT LIKE_REGEXPR('[0-9A-Fa-f]{16,}')
         AND (
-          SCHEMA_NAME IN (SELECT SCHEMA_NAME FROM SYS.TABLES)
-          OR SCHEMA_NAME IN (SELECT SCHEMA_NAME FROM SYS.VIEWS)
-          OR SCHEMA_NAME IN (SELECT SCHEMA_NAME FROM SYS.SYNONYMS)
+          s.SCHEMA_NAME = 'DWC_GLOBAL'
+          OR s.SCHEMA_NAME IN (
+            SELECT DISTINCT SUBSTR_BEFORE(sub.SCHEMA_NAME, '#')
+            FROM SYS.SCHEMAS sub
+            WHERE sub.SCHEMA_NAME LIKE '%#%'
+          )
         )
-      ORDER BY SCHEMA_NAME
+      ORDER BY s.SCHEMA_NAME
     `;
     return this.execute(sql);
   }

@@ -49,7 +49,14 @@ router.post('/connect', async (req, res, next) => {
 // Get Connection Status
 router.get('/status', (req, res) => {
   if (hanaService.connection) {
-    res.json({ connected: true, config: hanaService.currentConfig });
+    const safeConfig = hanaService.currentConfig
+      ? {
+          host: hanaService.currentConfig.host,
+          port: hanaService.currentConfig.port,
+          user: hanaService.currentConfig.user,
+        }
+      : null;
+    res.json({ connected: true, config: safeConfig });
   } else {
     res.json({ connected: false });
   }

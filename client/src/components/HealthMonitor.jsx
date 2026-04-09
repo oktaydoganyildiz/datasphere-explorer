@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RadialBarChart, RadialBar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
-import { Activity, Cpu, HardDrive, Database, RefreshCw, AlertTriangle, CheckCircle, Clock, Zap, Server, AlertCircle, Play, Calendar, Lock } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Database, RefreshCw, AlertTriangle, CheckCircle, Clock, Zap, AlertCircle, Play, Calendar } from 'lucide-react';
 import { FadeScaleIn, SlideUpIn } from './PageTransition';
 import { StatCardSkeleton } from './Skeleton';
 
@@ -73,6 +73,9 @@ const HealthMonitor = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
   const [isMock, setIsMock] = useState(false);
+  const [selectedChain, setSelectedChain] = useState(null);
+  const [chainDetail, setChainDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const MOCK = {
     cpu:  { pct: 38 },
@@ -87,18 +90,65 @@ const HealthMonitor = () => {
     taskLocks: [],
   };
 
+  // Fetch Task Chain detail
+  const fetchChainDetail = async (chainLogId) => {
+    setLoadingDetail(true);
+    setSelectedChain(chainLogId);
+    try {
+      const res = await fetch(`/api/stats/datasphere/taskchain/${chainLogId}`);
+      const json = await res.json();
+      setChainDetail(json);
+    } catch (err) {
+      console.error('Failed to fetch chain detail:', err);
+      setChainDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setSelectedChain(null);
+    setChainDetail(null);
+  };
+
   const fetchHealth = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setRefreshing(true);
     try {
-      const res = await fetch('/api/stats/health');
-      const json = await res.json();
-      const hasReal = json.cpu?.pct > 0 || json.mem?.pct > 0 || json.disk?.pct > 0;
-      if (hasReal) {
-        setData(json);
-        setIsMock(false);
+      // Fetch both standard health and DataSphere-specific data in parallel
+      const [healthRes, dsTasksRes, dsOverviewRes] = await Promise.all([
+        fetch('/api/stats/health'),
+        fetch('/api/stats/datasphere/tasks'),
+        fetch('/api/stats/datasphere/overview'),
+      ]);
+
+      const [healthJson, dsTasksJson, dsOverviewJson] = await Promise.all([
+        healthRes.json(),
+        dsTasksRes.ok ? dsTasksRes.json() : {},
+        dsOverviewRes.ok ? dsOverviewRes.json() : {},
+      ]);
+
+      const hasReal = healthJson.cpu?.pct > 0 || healthJson.mem?.pct > 0 || healthJson.disk?.pct > 0;
+      const hasDataSphereData = dsTasksJson.taskLogs?.length > 0 || dsTasksJson.taskChains?.length > 0;
+
+      if (hasReal || hasDataSphereData) {
+        setData({
+          ...healthJson,
+          // DataSphere task monitoring data
+          taskLogs: dsTasksJson.taskLogs || [],
+          taskErrors: dsTasksJson.taskErrors || [],
+          taskChains: dsTasksJson.taskChains || [],
+          taskStats: dsTasksJson.taskStats || [],
+          appStats: dsTasksJson.appStats || [],
+          spaces: dsTasksJson.spaces || [],
+          // Overview metrics
+          dsSummary: dsOverviewJson.summary || {},
+          hourlyTrend: dsOverviewJson.hourlyTrend || [],
+          avgDuration: dsOverviewJson.avgDuration || [],
+        });
+        setIsMock(!hasReal && hasDataSphereData);
       } else {
-        setData({ ...MOCK, connections: json.connections || [], expensiveStatements: json.expensiveStatements || [] });
+        setData({ ...MOCK, connections: healthJson.connections || [], expensiveStatements: healthJson.expensiveStatements || [] });
         setIsMock(true);
       }
     } catch {
@@ -162,6 +212,42 @@ const HealthMonitor = () => {
         </div>
       )}
 
+      {/* DataSphere Özet Kartları */}
+      {!loading && data?.dsSummary && (
+        <SlideUpIn delay={180}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">Başarılı (24s)</span>
+              </div>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{data.dsSummary.completed24h || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">Başarısız (24s)</span>
+              </div>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{data.dsSummary.failed24h || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-blue-500" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">Toplam (24s)</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{data.dsSummary.total24h || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-4 h-4 text-amber-500" />
+                <span className="text-xs text-gray-500 dark:text-gray-400">Aktif Görev</span>
+              </div>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{data.dsSummary.activeTasks || 0}</p>
+            </div>
+          </div>
+        </SlideUpIn>
+      )}
+
       {isMock && !loading && (
         <SlideUpIn delay={200}>
           <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
@@ -185,183 +271,42 @@ const HealthMonitor = () => {
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Database className="w-4 h-4 text-blue-500" />Aktif Bağlantılar
+              <Calendar className="w-4 h-4 text-purple-500" />Task Chains
             </h3>
-            <span className="text-xs text-gray-400">{data?.connections?.length ?? 0} bağlantı</span>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_CHAIN_RUNS (Detay için tıklayın)</span>
           </div>
           <table className="min-w-full text-sm">
             <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              {['ID', 'Kullanıcı', 'Host', 'Durum', 'İşlem', 'Süre'].map(h => (
-                <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{h}</th>
-              ))}
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.connections?.length > 0 ? data.connections.map((c, i) => (
-                <tr key={c.CONNECTION_ID} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs font-mono text-gray-900 dark:text-white">#{c.CONNECTION_ID}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-700 dark:text-gray-300">{c.USER_NAME}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate">{c.CLIENT_HOST}</td>
-                  <td className="px-4 py-2.5 text-xs">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.CONNECTION_STATUS === 'RUNNING' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300'}`}>
-                      {c.CONNECTION_STATUS === 'RUNNING' && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />}
-                      {c.CONNECTION_STATUS}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{c.STMT_TYPE || '—'}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 text-right">{c.DURATION_S != null ? `${c.DURATION_S}s` : '—'}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-gray-400">
-                  Aktif bağlantı bulunamadı
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SlideUpIn>
-
-      <SlideUpIn delay={450}>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-yellow-500" />En Yavaş Sorgular
-            </h3>
-            <span className="text-xs text-gray-400">SYS.M_EXPENSIVE_STATEMENTS</span>
-          </div>
-          <table className="min-w-full text-sm">
-            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Süre (ms)</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Çalışma</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SQL</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.expensiveStatements?.length > 0 ? data.expensiveStatements.map((s, i) => (
-                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 60}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs text-right font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">{Number(s.DURATION_MS).toLocaleString()} ms</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 text-right">{s.EXECUTION_COUNT}</td>
-                  <td className="px-4 py-2.5 text-xs font-mono text-gray-600 dark:text-gray-400 max-w-xs truncate">{s.STATEMENT_STRING?.slice(0, 80)}…</td>
-                </tr>
-              )) : (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-xs text-gray-400">Sorgu kaydı yok</td></tr>
-              )}
-            </tbody>
-          </table>
-          </div>
-        </SlideUpIn>
-
-      <SlideUpIn delay={550}>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Server className="w-4 h-4 text-purple-500" />Disk Detayları
-            </h3>
-            <span className="text-xs text-gray-400">SYS.M_DISKS</span>
-          </div>
-          <table className="min-w-full text-sm">
-            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Volume</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Tip</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kullanılan</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Toplam</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">%</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.diskDetails?.length > 0 ? data.diskDetails.map((d, i) => (
-                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs font-mono text-gray-700 dark:text-gray-300">{d.VOLUME_ID}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{d.FILE_TYPE}</td>
-                  <td className="px-4 py-2.5 text-xs text-right text-gray-700 dark:text-gray-300">{d.USED_GB} GB</td>
-                  <td className="px-4 py-2.5 text-xs text-right text-gray-500 dark:text-gray-400">{d.TOTAL_GB} GB</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      d.USAGE_PCT >= 90 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                      d.USAGE_PCT >= 75 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    }`}>{d.USAGE_PCT}%</span>
-                  </td>
-                </tr>
-              )) : (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Disk verisi yok</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SlideUpIn>
-
-      <SlideUpIn delay={600}>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Play className="w-4 h-4 text-blue-500" />Görev Performansı (PEAK CPU/MEMORY)
-            </h3>
-            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOGS_V_EXT</span>
-          </div>
-          <table className="min-w-full text-sm">
-            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aktivite</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Chain Adı</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Space</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Durum</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kullanıcı</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Başlangıç</th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Süre</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PEAK CPU</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">PEAK MEM</th>
             </tr></thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.taskLogs?.length > 0 ? data.taskLogs.map((t, i) => (
-                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{t.TASK_NAME}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{t.ACTIVITY || '-'}</td>
+              {data?.taskChains?.length > 0 ? data.taskChains.map((c, i) => (
+                <tr 
+                  key={i} 
+                  className="conn-row cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20" 
+                  style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}
+                  onClick={() => fetchChainDetail(c.CHAIN_TASK_LOG_ID)}
+                >
+                  <td className="px-4 py-2.5 text-xs font-medium text-blue-600 dark:text-blue-400 underline">{c.TECHNICAL_NAME}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{c.SPACE_ID}</td>
                   <td className="px-4 py-2.5 text-xs">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      t.STATUS === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                      t.STATUS === 'FAILED' || t.STATUS === 'ERROR' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      c.STATUS === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                      c.STATUS === 'FAILED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                       'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                    }`}>{t.STATUS}</span>
+                    }`}>{c.STATUS}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{t.START_TIME ? new Date(t.START_TIME).toLocaleString('tr-TR') : '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-right text-gray-500 dark:text-gray-400">{t.DURATION_SEC ? `${t.DURATION_SEC}s` : '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-right font-mono text-gray-700 dark:text-gray-300">{t.PEAK_CPU || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-right font-mono text-gray-700 dark:text-gray-300">{t.PEAK_MEMORY || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{c.USER || '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{c.START_TIME ? new Date(c.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-right text-gray-500 dark:text-gray-400">{c.DURATION_SEC ? `${c.DURATION_SEC}s` : '-'}</td>
                 </tr>
               )) : (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-xs text-gray-400">Görev kaydı yok</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </SlideUpIn>
-
-      <SlideUpIn delay={650}>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-green-500" />Zamanlanmış Görevler
-            </h3>
-            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_SCHEDULES_V_EXT</span>
-          </div>
-          <table className="min-w-full text-sm">
-            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Schedule</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sahip</th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aktif</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sonraki Çalışma</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.taskSchedules?.length > 0 ? data.taskSchedules.map((s, i) => (
-                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{s.TASK_NAME}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400 font-mono">{s.SCHEDULE_STRING || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{s.OWNER || '-'}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      s.IS_ENABLED ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-400'
-                    }`}>{s.IS_ENABLED ? 'Aktif' : 'Pasif'}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{s.NEXT_RUN_TIME ? new Date(s.NEXT_RUN_TIME).toLocaleString('tr-TR') : '-'}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Zamanlanmış görev yok</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-gray-400">Task Chain kaydı yok</td></tr>
               )}
             </tbody>
           </table>
@@ -374,7 +319,7 @@ const HealthMonitor = () => {
             <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-500" />Hata Alan Görevler
             </h3>
-            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOG_MESSAGES_V_EXT</span>
+            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOG_MESSAGES</span>
           </div>
           <table className="min-w-full text-sm">
             <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
@@ -399,43 +344,130 @@ const HealthMonitor = () => {
         </div>
       </SlideUpIn>
 
-      <SlideUpIn delay={750}>
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-              <Lock className="w-4 h-4 text-orange-500" />Kilitli Çalışan Görevler
-            </h3>
-            <span className="text-xs text-gray-400">DWC_GLOBAL.TASK_LOCKS_V_EXT</span>
-          </div>
-          <table className="min-w-full text-sm">
-            <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Görev</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Object ID</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kilit Durumu</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Kullanıcı</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Başlangıç</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-              {data?.taskLocks?.length > 0 ? data.taskLocks.map((l, i) => (
-                <tr key={i} className="conn-row" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
-                  <td className="px-4 py-2.5 text-xs font-medium text-gray-900 dark:text-white">{l.TASK_NAME}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.OBJECT_ID || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      l.LOCK_STATUS === 'LOCKED' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
-                      'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                    }`}>{l.LOCK_STATUS || '-'}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.USER_NAME || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">{l.START_TIME ? new Date(l.START_TIME).toLocaleString('tr-TR') : '-'}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-xs text-gray-400">Kilitli görev yok</td></tr>
+      {/* Task Chain Detail Modal */}
+      {selectedChain && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeDetail}>
+          <div 
+            className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-purple-500" />
+                Task Chain Detayı
+                {chainDetail?.chain && (
+                  <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    chainDetail.chain.STATUS === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                    chainDetail.chain.STATUS === 'FAILED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                    'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}>{chainDetail.chain.STATUS}</span>
+                )}
+              </h3>
+              <button onClick={closeDetail} className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded">
+                <AlertCircle className="w-5 h-5 text-gray-400 rotate-45" />
+              </button>
+            </div>
+
+            <div className="overflow-auto max-h-[calc(80vh-60px)] p-5 space-y-5">
+              {loadingDetail ? (
+                <div className="text-center py-8 text-gray-400">Yükleniyor...</div>
+              ) : chainDetail ? (
+                <>
+                  {/* Chain Info */}
+                  {chainDetail.chain && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Chain Adı</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{chainDetail.chain.TECHNICAL_NAME}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Space</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{chainDetail.chain.SPACE_ID}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Kullanıcı</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{chainDetail.chain.USER || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Süre</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{chainDetail.chain.DURATION_SEC}s</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-Tasks (Nodes) */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                      <Play className="w-4 h-4 text-blue-500" />Alt Görevler (Nodes)
+                    </h4>
+                    <table className="min-w-full text-sm border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                      <thead><tr className="bg-gray-50 dark:bg-slate-900/50">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Node</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Uygulama</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Object</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aktivite</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Durum</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Süre</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                        {chainDetail.nodes?.length > 0 ? chainDetail.nodes.map((n, i) => (
+                          <tr key={i} className={n.STATUS === 'FAILED' ? 'bg-red-50 dark:bg-red-900/10' : ''}>
+                            <td className="px-3 py-2 text-xs font-mono">#{n.NODE_ID}</td>
+                            <td className="px-3 py-2 text-xs">{n.APPLICATION_ID}</td>
+                            <td className="px-3 py-2 text-xs font-medium">{n.OBJECT_ID}</td>
+                            <td className="px-3 py-2 text-xs">{n.ACTIVITY}</td>
+                            <td className="px-3 py-2 text-xs">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                n.STATUS === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                n.STATUS === 'FAILED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                              }`}>{n.STATUS}</span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-right">{n.DURATION_SEC ? `${n.DURATION_SEC}s` : '-'}</td>
+                          </tr>
+                        )) : (
+                          <tr><td colSpan={6} className="px-3 py-4 text-center text-gray-400">Alt görev yok</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Error Messages */}
+                  {chainDetail.errors?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />Hata Mesajları
+                      </h4>
+                      <div className="space-y-2">
+                        {chainDetail.errors.map((e, i) => (
+                          <div key={i} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                e.SEVERITY === 'ERROR' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>{e.SEVERITY}</span>
+                              <span className="text-xs text-gray-500">{e.TIMESTAMP ? new Date(e.TIMESTAMP).toLocaleString('tr-TR') : ''}</span>
+                              <span className="text-xs text-gray-400">Task #{e.TASK_LOG_ID}</span>
+                            </div>
+                            <p className="text-sm text-red-700 dark:text-red-300">{e.TEXT}</p>
+                            {e.DETAILS && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-gray-500 cursor-pointer">Detaylar</summary>
+                                <pre className="mt-1 text-xs bg-gray-100 dark:bg-slate-900 p-2 rounded overflow-x-auto">{e.DETAILS}</pre>
+                              </details>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-400">Detay bulunamadı</div>
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
-      </SlideUpIn>
+      )}
     </div>
   );
 };

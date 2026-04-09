@@ -49,3 +49,4 @@ temp/
 # IDE and editor specific
 .vscode/launch.json
 .vscode/settings.json
+.gstack/

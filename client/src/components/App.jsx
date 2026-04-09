@@ -1,38 +1,25 @@
 import React, { useState } from 'react';
-import useConnectionStore from './store/connectionStore';
-import Sidebar from './components/Sidebar';
-import ConnectionForm from './components/ConnectionForm';
-import TableList from './components/TableList';
-import PreviewModal from './components/PreviewModal';
-import Dashboard from './components/Dashboard';
-import AiQueryBuilder from './components/AiQueryBuilder';
-import HealthMonitor from './components/HealthMonitor';
-import PageTransition from './components/PageTransition';
-
-const appStyles = `
-@keyframes connectionFormIn {
-  from { opacity: 0; transform: translateY(20px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.connection-form-enter { animation: connectionFormIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
-@keyframes staggerChild {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-`;
-
-if (!document.querySelector('#app-anim-styles')) {
-  const s = document.createElement('style');
-  s.id = 'app-anim-styles';
-  s.textContent = appStyles;
-  document.head.appendChild(s);
-}
+import useConnectionStore from '../store/connectionStore';
+import Sidebar from './Sidebar';
+import ConnectionForm from './ConnectionForm';
+import TableList from './TableList';
+import PreviewModal from './PreviewModal';
+import Dashboard from './Dashboard';
+import SmartQuery from './SmartQuery';
+import HealthMonitor from './HealthMonitor';
+import CsvImport from './CsvImport';
+import QueryHistory from './QueryHistory';
+import QueryPlayground from './QueryPlayground';
+import PageTransition from './PageTransition';
 
 const TAB_META = {
-  dashboard: { title: 'System Dashboard',  desc: 'Sistemin genel görünümü ve istatistikler.' },
-  explorer:  { title: 'Data Explorer',     desc: 'Şemalar, tablolar ve veri önizleme.' },
-  health:    { title: 'Health Monitor',    desc: 'CPU, bellek, disk ve aktif bağlantılar.' },
-  ai:        { title: 'AI Assistant',      desc: 'Doğal dil ile SQL üret ve analiz yap.' },
+  dashboard:    { title: 'System Dashboard',  desc: 'Sistemin genel gorunumu ve istatistikler.' },
+  explorer:     { title: 'Data Explorer',     desc: 'Semalar, tablolar ve veri onizleme.' },
+  health:       { title: 'Health Monitor',    desc: 'Task Chain izleme ve hata takibi.' },
+  smartquery:   { title: 'Smart Query',       desc: 'Dogal dil ile SQL uret ve calistir.', fullWidth: true },
+  sqleditor:    { title: 'SQL Editor',        desc: 'Serbest SQL sorgusu yazin ve calistirin.' },
+  csvimport:    { title: 'CSV Import',        desc: 'CSV dosyalarini tabloya aktarin.' },
+  queryhistory: { title: 'Query History',     desc: 'Sorgu gecmisi ve favoriler.' },
 };
 
 function App() {
@@ -49,31 +36,37 @@ function App() {
   const meta = TAB_META[activeTab] || TAB_META.dashboard;
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-slate-900 overflow-hidden transition-colors duration-200">
+    <div className="flex h-screen bg-gray-50 dark:bg-surface-0 overflow-hidden transition-colors duration-300">
       <Sidebar onDisconnect={handleDisconnect} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="flex-1 overflow-hidden flex flex-col">
-        <header className="px-6 pt-6 pb-4 flex-shrink-0">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            {isConnected ? meta.title : 'Welcome to DataSphere Explorer'}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-            {isConnected ? meta.desc : 'SAP HANA Cloud veya DataSphere örneğinize bağlanın.'}
-          </p>
-        </header>
+      <main className="flex-1 overflow-hidden flex flex-col relative mesh-bg noise-overlay">
+        {/* Header */}
+        {!meta.fullWidth && (
+          <header className="px-8 pt-7 pb-5 flex-shrink-0 relative z-10">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              {isConnected ? meta.title : 'Welcome to DataSphere Explorer'}
+            </h1>
+            <p className="text-gray-500 dark:text-slate-500 text-sm mt-1 font-medium">
+              {isConnected ? meta.desc : 'SAP HANA Cloud veya DataSphere orneginize baglanin.'}
+            </p>
+          </header>
+        )}
 
-        <div className="flex-1 overflow-auto px-6 pb-6">
+        <div className={`flex-1 overflow-auto relative z-10 ${meta.fullWidth ? '' : 'px-8 pb-8'}`}>
           {isConnected ? (
             <PageTransition animKey={activeTab}>
-              {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'explorer'  && <TableList onPreview={(s, t) => setPreviewTarget({ schema: s, table: t })} />}
-              {activeTab === 'health'    && <HealthMonitor />}
-              {activeTab === 'ai'        && (
-                <div className="max-w-3xl mx-auto mt-6"><AiQueryBuilder /></div>
-              )}
+              {activeTab === 'dashboard'    && <Dashboard />}
+              {activeTab === 'explorer'     && <TableList onPreview={(s, t) => setPreviewTarget({ schema: s, table: t })} />}
+              {activeTab === 'health'       && <HealthMonitor />}
+              {activeTab === 'smartquery'   && <SmartQuery />}
+              {activeTab === 'sqleditor'    && <QueryPlayground />}
+              {activeTab === 'csvimport'    && <CsvImport />}
+              {activeTab === 'queryhistory' && <QueryHistory />}
             </PageTransition>
           ) : (
-            <div className="connection-form-enter"><ConnectionForm /></div>
+            <div className="animate-fade-up px-8">
+              <ConnectionForm />
+            </div>
           )}
         </div>
       </main>

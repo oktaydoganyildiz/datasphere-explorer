@@ -45,75 +45,21 @@ router.get('/health', async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not connected.' });
     }
 
-    const cpuSql = `
-      SELECT TOP 1
-        ROUND(AVG(TOTAL_CPU_USER_TIME + TOTAL_CPU_SYSTEM_TIME) / NULLIF(AVG(TOTAL_CPU_USER_TIME + TOTAL_CPU_SYSTEM_TIME + TOTAL_CPU_WIO_TIME + TOTAL_CPU_IDLE_TIME), 0) * 100, 1) AS CPU_PCT
-      FROM SYS.M_LOAD_HISTORY_SERVICE
-      WHERE TIME > ADD_SECONDS(CURRENT_TIMESTAMP, -60)
-    `;
-
-    const memSql = `
-      SELECT TOP 1
-        ROUND(USED_PHYSICAL_MEMORY / NULLIF(TOTAL_PHYSICAL_MEMORY, 0) * 100, 1) AS MEM_PCT,
-        ROUND(USED_PHYSICAL_MEMORY / 1073741824.0, 2) AS USED_GB,
-        ROUND(TOTAL_PHYSICAL_MEMORY / 1073741824.0, 2) AS TOTAL_GB
-      FROM SYS.M_HOST_RESOURCE_UTILIZATION
-    `;
-
-    const diskSql = `
-      SELECT
-        ROUND(SUM(USED_SIZE) / NULLIF(SUM(TOTAL_SIZE), 0) * 100, 1) AS DISK_PCT,
-        ROUND(SUM(USED_SIZE)  / 1073741824.0, 2) AS USED_GB,
-        ROUND(SUM(TOTAL_SIZE) / 1073741824.0, 2) AS TOTAL_GB
-      FROM SYS.M_DISK_USAGE
-      WHERE USED_SIZE > 0
-    `;
-
-    const connDetailSql = `
-      SELECT TOP 10
-        CONNECTION_ID,
-        USER_NAME,
-        CLIENT_HOST,
-        CONNECTION_STATUS,
-        CURRENT_STATEMENT_TYPE as STMT_TYPE,
-        SECONDS_BETWEEN(START_TIME, CURRENT_TIMESTAMP) AS DURATION_S
-      FROM SYS.M_CONNECTIONS
-      WHERE CONNECTION_STATUS IN ('RUNNING', 'IDLE')
-      ORDER BY CONNECTION_STATUS DESC, DURATION_S DESC
-    `;
-
-    const expensiveSql = `
-      SELECT TOP 5
-        ROUND(DURATION_MICROSEC / 1000.0, 0) AS DURATION_MS,
-        EXECUTION_COUNT,
-        STATEMENT_STRING
-      FROM SYS.M_EXPENSIVE_STATEMENTS
-      ORDER BY DURATION_MICROSEC DESC
-    `;
-
-    const [cpuRows, memRows, diskRows, connRows] = await Promise.all([
-      hanaService.execute(cpuSql).catch(() => []),
-      hanaService.execute(memSql).catch(() => []),
-      hanaService.execute(diskSql).catch(() => []),
-      hanaService.execute(connDetailSql).catch(() => []),
-    ]);
-
-    const expRows = await hanaService.execute(expensiveSql).catch(() => []);
-
+    // Return simple health status without requiring system table privileges
     res.json({
-      cpu:  { pct: parseFloat(cpuRows[0]?.CPU_PCT  || 0) },
+      cpu:  { pct: 0 },  // Requires SYS.M_LOAD_HISTORY_SERVICE privilege
       mem:  {
-        pct:     parseFloat(memRows[0]?.MEM_PCT   || 0),
-        usedGb:  parseFloat(memRows[0]?.USED_GB   || 0),
-        totalGb: parseFloat(memRows[0]?.TOTAL_GB  || 0),
-      },
+        pct: 0,
+        usedGb: 0,
+        totalGb: 0,
+      },  // Requires SYS.M_HOST_RESOURCE_UTILIZATION privilege
       disk: {
-        pct:     parseFloat(diskRows[0]?.DISK_PCT  || 0),
-        usedGb:  parseFloat(diskRows[0]?.USED_GB   || 0),
-        totalGb: parseFloat(diskRows[0]?.TOTAL_GB  || 0),
-      },
-      connections: connRows,
-      expensiveStatements: expRows,
+        pct: 0,
+        usedGb: 0,
+        totalGb: 0,
+      },  // Requires SYS.M_DISK_USAGE privilege
+      connections: [],  // Requires SYS.M_CONNECTIONS privilege
+      expensiveStatements: [],  // Removed - not useful
     });
   } catch (err) { next(err); }
 });
@@ -188,6 +134,304 @@ router.get('/lineage/:schema', async (req, res, next) => {
       }));
 
     res.json({ nodes, links });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// DataSphere Monitoring Endpoints (DWC_GLOBAL)
+// ─────────────────────────────────────────────────────────────────────
+
+router.get('/datasphere/tasks', async (req, res, next) => {
+  try {
+    if (!hanaService.connection) {
+      return res.status(401).json({ success: false, message: 'Not connected.' });
+    }
+
+    const spaceFilter = req.query.space; // Optional space filter
+
+    // Main task logs with space and object info
+    const taskLogsSql = `
+      SELECT TOP 30
+        t.TASK_LOG_ID,
+        t.SPACE_ID,
+        t.APPLICATION_ID AS TASK_NAME,
+        t.OBJECT_ID,
+        t.ACTIVITY,
+        t.STATUS,
+        t.START_TIME,
+        t.END_TIME,
+        t."USER",
+        SECONDS_BETWEEN(t.START_TIME, COALESCE(t.END_TIME, CURRENT_TIMESTAMP)) AS DURATION_SEC,
+        r.PEAK_CPU,
+        r.PEAK_MEMORY
+      FROM DWC_GLOBAL.TASK_LOGS t
+      LEFT JOIN DWC_GLOBAL.RESOURCE_MONITOR r ON t.TASK_LOG_ID = r.TASK_LOG_ID
+      ${spaceFilter ? "WHERE t.SPACE_ID = '" + spaceFilter.replace(/'/g, "''") + "'" : "WHERE t.SPACE_ID != '$$global$$'"}
+      ORDER BY t.START_TIME DESC
+    `;
+
+    // Failed tasks with error messages
+    const taskErrorsSql = `
+      SELECT TOP 15
+        t.TASK_LOG_ID,
+        t.SPACE_ID,
+        t.APPLICATION_ID AS TASK_NAME,
+        t.OBJECT_ID,
+        t.START_TIME,
+        t."USER",
+        m.SEVERITY,
+        m.TEXT,
+        m.DETAILS
+      FROM DWC_GLOBAL.TASK_LOGS t
+      JOIN DWC_GLOBAL.TASK_LOG_MESSAGES m ON t.TASK_LOG_ID = m.TASK_LOG_ID
+      WHERE t.STATUS = 'FAILED' AND m.SEVERITY IN ('ERROR', 'WARNING')
+      ${spaceFilter ? "AND t.SPACE_ID = '" + spaceFilter.replace(/'/g, "''") + "'" : "AND t.SPACE_ID != '$$global$$'"}
+      ORDER BY t.START_TIME DESC
+    `;
+
+    // Task Chain specific runs
+    const taskChainsSql = `
+      SELECT TOP 20
+        c.CHAIN_TASK_LOG_ID,
+        c.TECHNICAL_NAME,
+        c.SPACE_ID,
+        c.FUTURE_STATUS AS STATUS,
+        t.START_TIME,
+        t.END_TIME,
+        t."USER",
+        SECONDS_BETWEEN(t.START_TIME, COALESCE(t.END_TIME, CURRENT_TIMESTAMP)) AS DURATION_SEC
+      FROM DWC_GLOBAL.TASK_CHAIN_RUNS c
+      JOIN DWC_GLOBAL.TASK_LOGS t ON c.CHAIN_TASK_LOG_ID = t.TASK_LOG_ID
+      ${spaceFilter ? "WHERE c.SPACE_ID = '" + spaceFilter.replace(/'/g, "''") + "'" : ""}
+      ORDER BY t.START_TIME DESC
+    `;
+
+    const taskStatsSql = `
+      SELECT 
+        STATUS,
+        COUNT(*) AS CNT
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE SPACE_ID != '$$global$$'
+      GROUP BY STATUS
+    `;
+
+    const appStatsSql = `
+      SELECT TOP 10
+        APPLICATION_ID,
+        COUNT(*) AS TOTAL_RUNS,
+        SUM(CASE WHEN STATUS = 'COMPLETED' THEN 1 ELSE 0 END) AS COMPLETED,
+        SUM(CASE WHEN STATUS = 'FAILED' THEN 1 ELSE 0 END) AS FAILED
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE SPACE_ID != '$$global$$'
+      GROUP BY APPLICATION_ID
+      ORDER BY TOTAL_RUNS DESC
+    `;
+
+    // Get available spaces for filter dropdown
+    const spacesSql = `
+      SELECT DISTINCT SPACE_ID 
+      FROM DWC_GLOBAL.TASK_LOGS 
+      WHERE SPACE_ID != '$$global$$'
+      ORDER BY SPACE_ID
+    `;
+
+    const [taskLogs, taskErrors, taskChains, taskStats, appStats, spaces] = await Promise.all([
+      hanaService.execute(taskLogsSql).catch(() => []),
+      hanaService.execute(taskErrorsSql).catch(() => []),
+      hanaService.execute(taskChainsSql).catch(() => []),
+      hanaService.execute(taskStatsSql).catch(() => []),
+      hanaService.execute(appStatsSql).catch(() => []),
+      hanaService.execute(spacesSql).catch(() => []),
+    ]);
+
+    res.json({
+      taskLogs,
+      taskErrors,
+      taskChains,
+      taskStats,
+      appStats,
+      spaces: spaces.map(s => s.SPACE_ID),
+    });
+  } catch (err) { next(err); }
+});
+
+// Get Task Chain detail with sub-tasks and error messages
+router.get('/datasphere/taskchain/:chainLogId', async (req, res, next) => {
+  try {
+    if (!hanaService.connection) {
+      return res.status(401).json({ success: false, message: 'Not connected.' });
+    }
+
+    const { chainLogId } = req.params;
+
+    // Main chain info
+    const chainSql = `
+      SELECT 
+        c.CHAIN_TASK_LOG_ID,
+        c.TECHNICAL_NAME,
+        c.SPACE_ID,
+        c.FUTURE_STATUS AS STATUS,
+        t.START_TIME,
+        t.END_TIME,
+        t."USER",
+        SECONDS_BETWEEN(t.START_TIME, COALESCE(t.END_TIME, CURRENT_TIMESTAMP)) AS DURATION_SEC
+      FROM DWC_GLOBAL.TASK_CHAIN_RUNS c
+      JOIN DWC_GLOBAL.TASK_LOGS t ON c.CHAIN_TASK_LOG_ID = t.TASK_LOG_ID
+      WHERE c.CHAIN_TASK_LOG_ID = ?
+    `;
+
+    // Sub-tasks (nodes) in the chain
+    const nodesSql = `
+      SELECT 
+        n.NODE_ID,
+        n.TASK_LOG_ID AS SUB_TASK_LOG_ID,
+        t.APPLICATION_ID,
+        t.OBJECT_ID,
+        t.ACTIVITY,
+        t.STATUS,
+        t.START_TIME,
+        t.END_TIME,
+        SECONDS_BETWEEN(t.START_TIME, COALESCE(t.END_TIME, CURRENT_TIMESTAMP)) AS DURATION_SEC
+      FROM DWC_GLOBAL.TASK_CHAIN_RUN_NODES n
+      JOIN DWC_GLOBAL.TASK_LOGS t ON n.TASK_LOG_ID = t.TASK_LOG_ID
+      WHERE n.CHAIN_TASK_LOG_ID = ?
+      ORDER BY n.NODE_ID
+    `;
+
+    // Error messages for the chain and its sub-tasks
+    const messagesSql = `
+      SELECT 
+        m.TASK_LOG_ID,
+        m.MESSAGE_NO,
+        m.SEVERITY,
+        m.TEXT,
+        m.DETAILS,
+        m.TIMESTAMP
+      FROM DWC_GLOBAL.TASK_LOG_MESSAGES m
+      WHERE m.TASK_LOG_ID = ? 
+         OR m.TASK_LOG_ID IN (
+           SELECT n.TASK_LOG_ID FROM DWC_GLOBAL.TASK_CHAIN_RUN_NODES n 
+           WHERE n.CHAIN_TASK_LOG_ID = ?
+         )
+      ORDER BY m.TIMESTAMP
+    `;
+
+    const [chain, nodes, messages] = await Promise.all([
+      hanaService.execute(chainSql, [chainLogId]),
+      hanaService.execute(nodesSql, [chainLogId]),
+      hanaService.execute(messagesSql, [chainLogId, chainLogId]),
+    ]);
+
+    res.json({
+      chain: chain[0] || null,
+      nodes,
+      messages,
+      // Extract only error/warning messages for quick view
+      errors: messages.filter(m => m.SEVERITY === 'ERROR' || m.SEVERITY === 'WARNING'),
+    });
+  } catch (err) { next(err); }
+});
+
+router.get('/datasphere/resources', async (req, res, next) => {
+  try {
+    if (!hanaService.connection) {
+      return res.status(401).json({ success: false, message: 'Not connected.' });
+    }
+
+    const resourceSql = `
+      SELECT TOP 20
+        r.TASK_LOG_ID,
+        t.APPLICATION_ID AS TASK_NAME,
+        t.ACTIVITY,
+        t.STATUS,
+        t.START_TIME,
+        r.PEAK_MEMORY,
+        r.PEAK_CPU,
+        r.RECORDS,
+        r.USED_IN_MEMORY,
+        r.USED_IN_DISK,
+        r.TARGET_TABLE
+      FROM DWC_GLOBAL.RESOURCE_MONITOR r
+      JOIN DWC_GLOBAL.TASK_LOGS t ON r.TASK_LOG_ID = t.TASK_LOG_ID
+      ORDER BY r.TASK_LOG_ID DESC
+    `;
+
+    const meteringSql = `
+      SELECT TOP 10 * 
+      FROM DWC_GLOBAL.DS_METERING 
+      ORDER BY 1 DESC
+    `;
+
+    const [resources, metering] = await Promise.all([
+      hanaService.execute(resourceSql).catch(() => []),
+      hanaService.execute(meteringSql).catch(() => []),
+    ]);
+
+    res.json({ resources, metering });
+  } catch (err) { next(err); }
+});
+
+router.get('/datasphere/overview', async (req, res, next) => {
+  try {
+    if (!hanaService.connection) {
+      return res.status(401).json({ success: false, message: 'Not connected.' });
+    }
+
+    const last24hSql = `
+      SELECT 
+        SUM(CASE WHEN STATUS = 'COMPLETED' THEN 1 ELSE 0 END) AS COMPLETED_24H,
+        SUM(CASE WHEN STATUS = 'FAILED' THEN 1 ELSE 0 END) AS FAILED_24H,
+        COUNT(*) AS TOTAL_24H
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE START_TIME > ADD_SECONDS(CURRENT_TIMESTAMP, -86400)
+    `;
+
+    const activeTasksSql = `
+      SELECT COUNT(*) AS ACTIVE_TASKS
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE STATUS NOT IN ('COMPLETED', 'FAILED') AND START_TIME > ADD_SECONDS(CURRENT_TIMESTAMP, -3600)
+    `;
+
+    const avgDurationSql = `
+      SELECT 
+        APPLICATION_ID,
+        AVG(SECONDS_BETWEEN(START_TIME, END_TIME)) AS AVG_DURATION_SEC
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE STATUS = 'COMPLETED' AND END_TIME IS NOT NULL
+      GROUP BY APPLICATION_ID
+      ORDER BY AVG_DURATION_SEC DESC
+      LIMIT 5
+    `;
+
+    const hourlyTrendSql = `
+      SELECT 
+        HOUR(START_TIME) AS HOUR,
+        COUNT(*) AS TASK_COUNT,
+        SUM(CASE WHEN STATUS = 'COMPLETED' THEN 1 ELSE 0 END) AS SUCCESS_COUNT,
+        SUM(CASE WHEN STATUS = 'FAILED' THEN 1 ELSE 0 END) AS FAIL_COUNT
+      FROM DWC_GLOBAL.TASK_LOGS
+      WHERE START_TIME > ADD_SECONDS(CURRENT_TIMESTAMP, -86400)
+      GROUP BY HOUR(START_TIME)
+      ORDER BY HOUR
+    `;
+
+    const [last24h, activeTasks, avgDuration, hourlyTrend] = await Promise.all([
+      hanaService.execute(last24hSql).catch(() => [{}]),
+      hanaService.execute(activeTasksSql).catch(() => [{}]),
+      hanaService.execute(avgDurationSql).catch(() => []),
+      hanaService.execute(hourlyTrendSql).catch(() => []),
+    ]);
+
+    res.json({
+      summary: {
+        completed24h: parseInt(last24h[0]?.COMPLETED_24H || 0),
+        failed24h: parseInt(last24h[0]?.FAILED_24H || 0),
+        total24h: parseInt(last24h[0]?.TOTAL_24H || 0),
+        activeTasks: parseInt(activeTasks[0]?.ACTIVE_TASKS || 0),
+      },
+      avgDuration,
+      hourlyTrend,
+    });
   } catch (err) { next(err); }
 });
 

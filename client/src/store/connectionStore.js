@@ -12,7 +12,7 @@ const useConnectionStore = create((set) => ({
   
   // Actions
   setConnected: (status, config) => set({ isConnected: status, connectionConfig: config }),
-  setSchemas: (schemas) => set({ schemas }),
+  setSchemas: (schemas) => set((state) => ({ schemas, selectedSchema: state.selectedSchema || schemas[0] || null })),
   setSelectedSchema: (schema) => set({ selectedSchema: schema }),
   setTables: (tables) => set({ tables }),
   reset: () => set({ 

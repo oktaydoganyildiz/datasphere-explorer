@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, X, Table, Loader2 } from 'lucide-react';
-import { read, utils } from 'xlsx';
 import { FadeScaleIn, SlideUpIn } from './PageTransition';
 import useConnectionStore from '../store/connectionStore';
 
@@ -51,40 +50,23 @@ const CsvImport = () => {
     if (!f) return;
     
     const isCsv = f.name.toLowerCase().endsWith('.csv');
-    const isExcel = f.name.toLowerCase().match(/\.xlsx?$/);
-
-    if (!isCsv && !isExcel) {
-      setError('Sadece .csv, .xls veya .xlsx dosyaları destekleniyor');
+    if (!isCsv) {
+      setError('Sadece .csv dosyaları destekleniyor');
       return;
     }
 
     setError(null);
     setImportResult(null);
     setFile(f);
-    setTableName(f.name.replace(/\.(csv|xlsx?)$/i, '').toUpperCase().replace(/[^A-Z0-9_]/g, '_'));
+    setTableName(f.name.replace(/\.csv$/i, '').toUpperCase().replace(/[^A-Z0-9_]/g, '_'));
 
     const reader = new FileReader();
     
     reader.onload = (e) => {
       try {
-        let headers = [];
-        let rows = [];
-
-        if (isExcel) {
-          const wb = read(e.target.result, { type: 'binary' });
-          const sheetName = wb.SheetNames[0];
-          const sheet = wb.Sheets[sheetName];
-          const data = utils.sheet_to_json(sheet, { header: 1, defval: '' });
-          
-          if (data.length < 2) throw new Error('Excel dosyası en az 1 başlık ve 1 veri satırı içermeli');
-          
-          headers = data[0].map(h => String(h).trim());
-          rows = data.slice(1).map(row => row.map(cell => String(cell).trim()));
-        } else {
-          const result = parseCSV(e.target.result);
-          headers = result.headers;
-          rows = result.rows;
-        }
+        const result = parseCSV(e.target.result);
+        const headers = result.headers;
+        const rows = result.rows;
 
         const types = headers.map((_, i) => inferType(rows.map(r => r[i])));
         setParsed({ headers, rows, types });
@@ -93,11 +75,7 @@ const CsvImport = () => {
       }
     };
 
-    if (isExcel) {
-      reader.readAsBinaryString(f);
-    } else {
-      reader.readAsText(f);
-    }
+    reader.readAsText(f);
   }, []);
 
   const handleDrop = (e) => {
@@ -142,7 +120,7 @@ const CsvImport = () => {
       <FadeScaleIn delay={0}>
         <div>
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Import Wizard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">CSV veya Excel dosyasını HANA'ya tablo olarak aktar</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">CSV dosyasını HANA'ya tablo olarak aktar</p>
         </div>
       </FadeScaleIn>
 
@@ -156,10 +134,10 @@ const CsvImport = () => {
             onClick={() => fileRef.current?.click()}
             style={{ borderColor: dragOver ? '#3b82f6' : undefined, background: dragOver ? 'rgba(59,130,246,0.05)' : undefined }}
           >
-            <input ref={fileRef} type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={e => handleFile(e.target.files[0])} />
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => handleFile(e.target.files[0])} />
             <Upload className="w-10 h-10 text-gray-300 dark:text-slate-600 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dosyayı sürükle veya tıkla</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">CSV, XLSX (Maks 5MB)</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">CSV (Maks 5MB)</p>
           </div>
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">

@@ -5,12 +5,12 @@ import ConnectionForm from './components/ConnectionForm';
 import TableList from './components/TableList';
 import PreviewModal from './components/PreviewModal';
 import Dashboard from './components/Dashboard';
-import AiQueryBuilder from './components/AiQueryBuilder';
+import SmartQuery from './components/SmartQuery';
+import QueryPlayground from './components/QueryPlayground';
 import HealthMonitor from './components/HealthMonitor';
 import CsvImport from './components/CsvImport';
 import QueryHistory from './components/QueryHistory';
 import PageTransition from './components/PageTransition';
-import QueryPlayground from './components/QueryPlayground';
 import ColumnProfiler from './components/ColumnProfiler';
 
 const appStyles = `
@@ -35,11 +35,11 @@ if (!document.querySelector('#app-anim-styles')) {
 const TAB_META = {
   dashboard:    { title: 'System Dashboard',  desc: 'Sistemin genel görünümü ve istatistikler.' },
   explorer:     { title: 'Data Explorer',     desc: 'Şemalar, tablolar ve veri önizleme.' },
-  health:       { title: 'Health Monitor',    desc: 'CPU, bellek, disk ve aktif bağlantılar.' },
-  ai:           { title: 'AI Assistant',      desc: 'Doğal dil ile SQL üret ve analiz yap.' },
-  csvimport:    { title: 'CSV Import',         desc: 'CSV dosyasını HANA\'ya tablo olarak aktar.' },
+  health:       { title: 'Health Monitor',    desc: 'Task Chain izleme ve hata takibi.' },
+  smartquery:   { title: 'Smart Query',       desc: 'Doğal dil ile SQL üret ve çalıştır.', fullWidth: true },
+  sqleditor:    { title: 'SQL Editor',        desc: 'Serbest SQL sorgusu yazın ve çalıştırın.', fullWidth: true },
+  csvimport:    { title: 'CSV Import',        desc: 'CSV dosyasını HANA\'ya tablo olarak aktar.' },
   queryhistory: { title: 'Query History',     desc: 'Geçmiş sorgularını görüntüle ve yönet.' },
-  playground:   { title: 'Query Playground', desc: 'SQL sorgularını doğrudan çalıştır.' },
 };
 
 function App() {
@@ -61,28 +61,31 @@ function App() {
       <Sidebar onDisconnect={handleDisconnect} activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 overflow-hidden flex flex-col">
-        <header className="px-6 pt-6 pb-4 flex-shrink-0">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            {isConnected ? meta.title : 'Welcome to DataSphere Explorer'}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
-            {isConnected ? meta.desc : 'SAP HANA Cloud veya DataSphere örneğinize bağlanın.'}
-          </p>
-        </header>
+        {/* Header - hide for fullWidth tabs */}
+        {!meta.fullWidth && (
+          <header className="px-6 pt-6 pb-4 flex-shrink-0">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+              {isConnected ? meta.title : 'Welcome to DataSphere Explorer'}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">
+              {isConnected ? meta.desc : 'SAP HANA Cloud veya DataSphere örneğinize bağlanın.'}
+            </p>
+          </header>
+        )}
 
-        <div className="flex-1 overflow-auto px-6 pb-6">
+        <div className={`flex-1 overflow-auto ${meta.fullWidth ? '' : 'px-6 pb-6'}`}>
           {isConnected ? (
             <PageTransition animKey={activeTab}>
               {activeTab === 'dashboard'    && <Dashboard />}
               {activeTab === 'explorer'     && <TableList onPreview={(s, t) => setPreviewTarget({ schema: s, table: t })} onProfile={(s, t) => setProfilerTarget({ schema: s, table: t })} />}
               {activeTab === 'health'       && <HealthMonitor />}
-              {activeTab === 'ai'           && <div className="max-w-3xl mx-auto mt-6"><AiQueryBuilder /></div>}
+              {activeTab === 'smartquery'   && <SmartQuery />}
+              {activeTab === 'sqleditor'    && <QueryPlayground />}
               {activeTab === 'csvimport'    && <CsvImport />}
               {activeTab === 'queryhistory' && <QueryHistory />}
-              {activeTab === 'playground'   && <QueryPlayground />}
             </PageTransition>
           ) : (
-            <div className="connection-form-enter"><ConnectionForm /></div>
+            <div className="connection-form-enter px-6"><ConnectionForm /></div>
           )}
         </div>
       </main>
