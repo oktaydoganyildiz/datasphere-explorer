@@ -31,10 +31,19 @@ const pulseStyles = `
 }
 .stat-card-animated:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px -6px rgba(0,0,0,0.12);
+  box-shadow: 0 0 24px -4px rgba(96, 165, 250, 0.15), 0 0 48px -8px rgba(139, 92, 246, 0.1);
 }
 .progress-bar-fill {
   transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.progress-glow {
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.4), 0 0 16px rgba(96, 165, 250, 0.2);
+}
+.progress-glow-yellow {
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.4), 0 0 16px rgba(234, 179, 8, 0.2);
+}
+.progress-glow-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4), 0 0 16px rgba(239, 68, 68, 0.2);
 }
 .status-dot-animated {
   animation: pulse-dot 2s ease-in-out infinite;
@@ -57,18 +66,18 @@ const AnimatedStatCard = ({ title, value, icon: Icon, color, delay = 0, prefix =
 
   return (
     <FadeScaleIn delay={delay}>
-      <div className="stat-card-animated bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className="stat-card-animated bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
               {title}
             </p>
-            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+            <p className="mt-2 text-3xl font-bold text-white">
               {prefix}{isNumber ? animatedValue.toLocaleString() : value}{suffix}
             </p>
           </div>
           <div className={`p-3 rounded-full ${color}`}>
-            <Icon className="w-6 h-6 text-white" />
+            <Icon className="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -84,22 +93,22 @@ const AnimatedProgressBar = ({ percentage }) => {
     return () => clearTimeout(timer);
   }, [percentage]);
 
-  let colorClass = 'bg-blue-600';
-  if (percentage > 95) colorClass = 'bg-red-500';
-  else if (percentage > 80) colorClass = 'bg-yellow-500';
+  let colorClass = 'bg-blue-500 progress-glow';
+  if (percentage > 95) colorClass = 'bg-red-500 progress-glow-red';
+  else if (percentage > 80) colorClass = 'bg-yellow-500 progress-glow-yellow';
 
   return (
     <SlideUpIn delay={600}>
-      <div className="mb-6 bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+      <div className="mb-6 bg-white/[0.03] backdrop-blur-xl p-4 rounded-lg border border-white/[0.06]">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-slate-300">
             HANA Cloud Storage
           </span>
-          <span className="text-sm font-bold text-gray-900 dark:text-white">
+          <span className="text-sm font-bold text-white">
             {percentage}% Used
           </span>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5">
+        <div className="w-full bg-white/[0.05] rounded-full h-2.5">
           <div
             className={`h-2.5 rounded-full progress-bar-fill ${colorClass}`}
             style={{ width: `${width}%` }}
@@ -113,7 +122,7 @@ const AnimatedProgressBar = ({ percentage }) => {
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-900 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 rounded-lg px-3 py-2 shadow-xl text-xs text-white">
+    <div className="bg-slate-900/90 backdrop-blur-md border border-cyan-500/20 rounded-lg px-3 py-2 shadow-xl text-xs text-white">
       <p className="font-medium mb-1">{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>
@@ -126,12 +135,12 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const AnimatedDataLoads = ({ loads }) => (
   <SlideUpIn delay={800}>
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-      <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Recent Data Loads</h3>
+    <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06]">
+      <h3 className="text-lg font-bold text-white mb-4">Recent Data Loads</h3>
       {loads?.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-slate-900/50">
+            <thead className="text-xs text-slate-500 uppercase bg-white/[0.02]">
               <tr>
                 <th className="px-4 py-3 rounded-l-md">Task Name</th>
                 <th className="px-4 py-3">Object ID</th>
@@ -142,16 +151,16 @@ const AnimatedDataLoads = ({ loads }) => (
                 <th className="px-4 py-3 rounded-r-md text-right">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+            <tbody className="divide-y divide-white/[0.03]">
               {loads.map((load, index) => {
                 const isSuccess = load.status === 'success';
                 const isFailed = load.status === 'failed';
                 const isRunning = load.status === 'running';
                 const statusCls = isSuccess
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                  ? 'bg-emerald-500/10 text-emerald-400'
                   : isFailed
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+                    ? 'bg-red-500/10 text-red-400'
+                    : 'bg-amber-500/10 text-amber-400';
 
                 const IconEl = isSuccess
                   ? CheckCircle
@@ -164,21 +173,21 @@ const AnimatedDataLoads = ({ loads }) => (
                 return (
                   <tr
                     key={index}
-                    className="row-hover hover:bg-gray-50 dark:hover:bg-slate-700/30"
+                    className="row-hover hover:bg-white/[0.02]"
                     style={{
                       opacity: 0,
                       animation: `staggerChild 0.4s cubic-bezier(0.16,1,0.3,1) ${800 + index * 80}ms both`,
                     }}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{load.task}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.objectId}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.activity}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 flex items-center">
+                    <td className="px-4 py-3 font-medium text-white">{load.task}</td>
+                    <td className="px-4 py-3 text-slate-400">{load.objectId}</td>
+                    <td className="px-4 py-3 text-slate-400">{load.activity}</td>
+                    <td className="px-4 py-3 text-slate-400 flex items-center">
                       <Clock className="w-3 h-3 mr-1.5" />
                       {load.time}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.duration}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{load.triggeredBy}</td>
+                    <td className="px-4 py-3 text-slate-400">{load.duration}</td>
+                    <td className="px-4 py-3 text-slate-400">{load.triggeredBy}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusCls}`}>
                         <IconEl className="w-3 h-3 mr-1" />
@@ -192,7 +201,7 @@ const AnimatedDataLoads = ({ loads }) => (
           </table>
         </div>
       ) : (
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-slate-400">
           No recent data load records found.
         </div>
       )}
@@ -200,7 +209,7 @@ const AnimatedDataLoads = ({ loads }) => (
   </SlideUpIn>
 );
 
-const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'];
+const COLORS = ['#60a5fa', '#10b981', '#8b5cf6', '#22d3ee'];
 
 const Dashboard = () => {
   const { selectedSchema, schemas, setSelectedSchema } = useConnectionStore();
@@ -260,12 +269,12 @@ const Dashboard = () => {
       <FadeScaleIn delay={0}>
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Operational Insights</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Real-time system overview</p>
+            <h2 className="text-2xl font-bold text-white">Operational Insights</h2>
+            <p className="text-sm text-slate-400 mt-0.5">Real-time system overview</p>
           </div>
-          <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-            <div className="status-dot-animated w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+          <div className="flex items-center space-x-2 bg-white/[0.03] backdrop-blur-xl px-3 py-1.5 rounded-full border border-white/[0.06]">
+            <div className="status-dot-animated w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+            <span className="text-xs font-semibold text-slate-300">
               {activeConns} Remote Connections Active
             </span>
           </div>
@@ -275,15 +284,15 @@ const Dashboard = () => {
       {/* KPI cards with staggered entrance */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Schema</div>
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Schema</div>
           <select
-            className="p-2 border border-gray-300 dark:border-slate-600 rounded-md text-sm bg-white dark:bg-slate-800 dark:text-white transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="p-2 border border-white/[0.06] rounded-md text-sm bg-white/[0.03] text-white transition-colors focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             value={currentSchema}
             onChange={(e) => setSelectedSchema(e.target.value)}
             aria-label="Schema select"
           >
             {schemaOptions.map(s => (
-              <option key={s} value={s}>
+              <option key={s} value={s} className="bg-slate-900 text-white">
                 {s}
               </option>
             ))}
@@ -292,9 +301,9 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <AnimatedStatCard title="Total Tables"   value={stats.totalTables} icon={Table}    color="bg-blue-500"    delay={0} />
-        <AnimatedStatCard title="Total Views"    value={stats.totalViews}  icon={Eye}      color="bg-purple-500"  delay={100} />
-        <AnimatedStatCard title="Current Schema" value={stats.schema}      icon={Database} color="bg-emerald-500" delay={200} />
+        <AnimatedStatCard title="Total Tables"   value={stats.totalTables} icon={Table}    color="bg-blue-500/10 text-blue-400"    delay={0} />
+        <AnimatedStatCard title="Total Views"    value={stats.totalViews}  icon={Eye}      color="bg-purple-500/10 text-purple-400"  delay={100} />
+        <AnimatedStatCard title="Current Schema" value={stats.schema}      icon={Database} color="bg-emerald-500/10 text-emerald-400" delay={200} />
       </div>
 
       {/* Storage bar */}
@@ -303,16 +312,16 @@ const Dashboard = () => {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SlideUpIn delay={400}>
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col h-[400px]">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6">Largest Tables (Rows)</h3>
+          <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06] flex flex-col h-[400px]">
+            <h3 className="text-lg font-bold text-white mb-6">Largest Tables (Rows)</h3>
             <div className="flex-1 w-full min-h-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topTablesData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={formatYAxis} tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59,130,246,0.06)' }} />
-                  <Bar dataKey="rows" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1200} animationEasing="ease-out" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(96,165,250,0.06)' }} />
+                  <Bar dataKey="rows" fill="#60a5fa" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1200} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -320,8 +329,8 @@ const Dashboard = () => {
         </SlideUpIn>
 
         <SlideUpIn delay={500}>
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex flex-col h-[400px]">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-6">Object Distribution</h3>
+          <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06] flex flex-col h-[400px]">
+            <h3 className="text-lg font-bold text-white mb-6">Object Distribution</h3>
             <div className="flex-1 w-full min-h-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -340,12 +349,12 @@ const Dashboard = () => {
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b', border: 'none',
-                      borderRadius: '8px', color: '#fff',
+                      backgroundColor: 'rgba(15,23,42,0.9)', border: '1px solid rgba(34,211,238,0.2)',
+                      borderRadius: '8px', color: '#fff', backdropFilter: 'blur(12px)',
                     }}
                     itemStyle={{ color: '#fff' }}
                   />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '20px', color: '#94a3b8' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

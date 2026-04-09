@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, X, Table, Loader2 } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, X, Table } from 'lucide-react';
 import { FadeScaleIn, SlideUpIn } from './PageTransition';
 import useConnectionStore from '../store/connectionStore';
 
 const csvStyles = `
 .drop-zone { transition: border-color .2s, background .2s; }
-.drop-zone.drag-over { border-color: #3b82f6 !important; background: rgba(59,130,246,0.05); }
+.drop-zone.drag-over { border-color: rgba(96,165,250,0.5) !important; background: rgba(59,130,246,0.03); }
 .csv-table { font-size: 11px; }
 .csv-table th, .csv-table td { padding: 4px 10px; white-space: nowrap; }
 `;
@@ -48,7 +48,7 @@ const CsvImport = () => {
 
   const handleFile = useCallback((f) => {
     if (!f) return;
-    
+
     const isCsv = f.name.toLowerCase().endsWith('.csv');
     if (!isCsv) {
       setError('Sadece .csv dosyaları destekleniyor');
@@ -61,7 +61,7 @@ const CsvImport = () => {
     setTableName(f.name.replace(/\.csv$/i, '').toUpperCase().replace(/[^A-Z0-9_]/g, '_'));
 
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const result = parseCSV(e.target.result);
@@ -119,28 +119,29 @@ const CsvImport = () => {
     <div className="p-6 space-y-5">
       <FadeScaleIn delay={0}>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Import Wizard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">CSV dosyasını HANA'ya tablo olarak aktar</p>
+          <h2 className="text-2xl font-bold text-white">Import Wizard</h2>
+          <p className="text-sm text-slate-400 mt-0.5">CSV dosyasını HANA'ya tablo olarak aktar</p>
         </div>
       </FadeScaleIn>
 
       {!parsed && (
         <FadeScaleIn delay={60}>
           <div
-            className="drop-zone border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-12 text-center cursor-pointer"
+            className={`drop-zone border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
+              dragOver ? 'border-blue-500/50 bg-blue-500/[0.03]' : 'border-white/[0.1]'
+            }`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            style={{ borderColor: dragOver ? '#3b82f6' : undefined, background: dragOver ? 'rgba(59,130,246,0.05)' : undefined }}
           >
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => handleFile(e.target.files[0])} />
-            <Upload className="w-10 h-10 text-gray-300 dark:text-slate-600 mx-auto mb-3" />
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Dosyayı sürükle veya tıkla</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">CSV (Maks 5MB)</p>
+            <Upload className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-400">Dosyayı sürükle veya tıkla</p>
+            <p className="text-xs text-slate-500 mt-1">CSV (Maks 5MB)</p>
           </div>
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+            <div className="flex items-center gap-2 p-3 bg-red-500/[0.06] border border-red-500/15 rounded-lg text-sm text-red-400">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
             </div>
           )}
@@ -150,27 +151,27 @@ const CsvImport = () => {
       {parsed && (
         <>
           <SlideUpIn delay={0}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-blue-500" />
+                  <FileText className="w-5 h-5 text-blue-400" />
                   <div>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">{file.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-sm font-semibold text-white">{file.name}</p>
+                    <p className="text-xs text-slate-500">
                       {parsed.headers.length} kolon · {parsed.rows.length} satır
                     </p>
                   </div>
                 </div>
-                <button onClick={reset} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                <button onClick={reset} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.06] transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Hedef Şema</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Hedef Şema</label>
                   <select
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm bg-white/[0.04] border border-white/[0.08] text-white rounded-lg focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]"
                     value={targetSchema} onChange={e => setTargetSchema(e.target.value)}
                   >
                     <option value="" disabled>Seç…</option>
@@ -178,25 +179,25 @@ const CsvImport = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1.5">Tablo Adı</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Tablo Adı</label>
                   <input
                     type="text"
                     value={tableName}
                     onChange={e => setTableName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))}
                     placeholder="TABLO_ADI"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 dark:text-white font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm bg-white/[0.04] border border-white/[0.08] text-white font-mono rounded-lg focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]"
                   />
                 </div>
               </div>
 
-              {/* Kolon tipleri */}
+              {/* Column types */}
               <div className="mt-4">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Kolon Tipleri (otomatik algılandı)</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Kolon Tipleri (otomatik algılandı)</p>
                 <div className="flex flex-wrap gap-1.5">
                   {parsed.headers.map((h, i) => (
-                    <div key={h} className="flex items-center gap-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-md px-2 py-1">
-                      <span className="text-xs font-mono text-gray-700 dark:text-gray-300">{h}</span>
-                      <span className="text-xs text-blue-500">:{parsed.types[i]}</span>
+                    <div key={h} className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.06] rounded-md px-2 py-1">
+                      <span className="text-xs font-mono text-slate-400">{h}</span>
+                      <span className="text-xs text-blue-400">:{parsed.types[i]}</span>
                     </div>
                   ))}
                 </div>
@@ -206,38 +207,38 @@ const CsvImport = () => {
                 <button
                   onClick={doImport}
                   disabled={importing || !targetSchema || !tableName}
-                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-all shadow-[0_0_16px_rgba(59,130,246,0.25)] hover:shadow-[0_0_24px_rgba(59,130,246,0.35)]"
                 >
-                  {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Table className="w-4 h-4" />}
+                  {importing ? <div className="data-dots"><span></span><span></span><span></span></div> : <Table className="w-4 h-4" />}
                   {importing ? 'Aktarılıyor…' : 'HANA\'ya Aktar'}
                 </button>
               </div>
             </div>
           </SlideUpIn>
 
-          {/* Önizleme */}
+          {/* Preview */}
           <SlideUpIn delay={80}>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100 dark:border-slate-700">
-                <p className="text-sm font-semibold text-gray-800 dark:text-white">Önizleme (ilk 5 satır)</p>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/[0.03]">
+                <p className="text-sm font-semibold text-white">Önizleme (ilk 5 satır)</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="csv-table min-w-full">
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-slate-900/50">
+                    <tr className="bg-white/[0.02]">
                       {parsed.headers.map(h => (
-                        <th key={h} className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-r border-gray-100 dark:border-slate-700 last:border-0">
+                        <th key={h} className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider border-r border-white/[0.03] last:border-0">
                           {h}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                  <tbody>
                     {parsed.rows.slice(0, 5).map((row, i) => (
-                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-slate-700/30">
+                      <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
                         {row.map((cell, j) => (
-                          <td key={j} className="text-xs text-gray-700 dark:text-gray-300 font-mono border-r border-gray-100 dark:border-slate-700 last:border-0 max-w-xs overflow-hidden text-ellipsis">
-                            {cell || <span className="text-gray-300 dark:text-gray-600 italic">null</span>}
+                          <td key={j} className="text-xs text-slate-400 font-mono border-r border-white/[0.03] last:border-0 max-w-xs overflow-hidden text-ellipsis">
+                            {cell || <span className="text-slate-600 italic">null</span>}
                           </td>
                         ))}
                       </tr>
@@ -254,25 +255,25 @@ const CsvImport = () => {
         <SlideUpIn delay={0}>
           <div className={`flex items-start gap-3 p-4 rounded-xl border ${
             importResult.success
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
-              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              ? 'bg-emerald-500/[0.06] border-emerald-500/15'
+              : 'bg-red-500/[0.06] border-red-500/15'
           }`}>
             {importResult.success
-              ? <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-              : <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              ? <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              : <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
             }
             <div className="text-sm">
               {importResult.success ? (
                 <>
-                  <p className="font-semibold text-emerald-800 dark:text-emerald-300">Aktarım tamamlandı</p>
-                  <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  <p className="font-semibold text-emerald-300">Aktarım tamamlandı</p>
+                  <p className="text-emerald-400/80 mt-0.5">
                     <span className="font-mono">{targetSchema}.{importResult.table}</span> tablosu oluşturuldu · {importResult.rows} satır eklendi
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="font-semibold text-red-800 dark:text-red-300">Aktarım başarısız</p>
-                  <p className="text-red-700 dark:text-red-400 mt-0.5">{importResult.message}</p>
+                  <p className="font-semibold text-red-300">Aktarım başarısız</p>
+                  <p className="text-red-400/80 mt-0.5">{importResult.message}</p>
                 </>
               )}
             </div>

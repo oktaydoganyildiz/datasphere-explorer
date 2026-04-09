@@ -22,8 +22,8 @@ const SkeletonBase = ({ className = '', style = {}, rounded = false }) => (
       backgroundSize: '200% 100%',
       animation: 'shimmer 1.6s ease-in-out infinite',
       borderRadius: rounded ? '9999px' : '6px',
-      '--sk-from': 'var(--color-background-secondary)',
-      '--sk-via': 'var(--color-border-tertiary)',
+      '--sk-from': 'rgba(255,255,255,0.03)',
+      '--sk-via': 'rgba(255,255,255,0.07)',
       ...style,
     }}
   />
@@ -42,7 +42,7 @@ export const SkeletonCircle = ({ size = 40 }) => (
 );
 
 export const StatCardSkeleton = () => (
-  <div className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+  <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06]">
     <div className="flex items-center justify-between">
       <div style={{ flex: 1 }}>
         <SkeletonText width="60%" height={12} />
@@ -67,7 +67,7 @@ export const TableRowSkeleton = ({ cols = 4 }) => (
 
 export const ChartSkeleton = ({ height = 300 }) => (
   <div
-    className="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700"
+    className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-lg border border-white/[0.06]"
     style={{ height: `${height + 80}px` }}
   >
     <SkeletonText width="40%" height={18} />

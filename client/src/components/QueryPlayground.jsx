@@ -182,24 +182,24 @@ const QueryPlayground = () => {
     <div className="flex gap-4" style={{ minHeight: 'calc(100vh - 160px)' }}>
       {/* Main Editor Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Editor Card */}
-        <div className="glass-card rounded-2xl overflow-hidden mb-4">
+        {/* Editor Card - Glass Panel */}
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden mb-4">
           {/* Toolbar */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-white/5">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20">
+              <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/25">
                 <Code2 className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white">SQL Editor</h2>
-                <p className="text-[11px] text-gray-400 dark:text-slate-500">Serbest SQL sorgusu yazin ve calistirin</p>
+                <h2 className="text-sm font-bold text-white">SQL Editor</h2>
+                <p className="text-[11px] text-slate-500">Serbest SQL sorgusu yazin ve calistirin</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 mr-2">
-                <Database className="w-3.5 h-3.5 text-gray-400" />
+                <Database className="w-3.5 h-3.5 text-slate-400" />
                 <select
-                  className="px-2.5 py-1.5 text-xs font-medium border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-surface-200 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="px-2.5 py-1.5 text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-white rounded-lg focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)] outline-none"
                   value={selectedSchema || ''}
                   onChange={(e) => setSelectedSchema(e.target.value)}
                 >
@@ -209,7 +209,7 @@ const QueryPlayground = () => {
               </div>
               <button
                 onClick={() => { setSql(''); setResult(null); setError(null); }}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                 title="Temizle (Ctrl+L)"
               >
                 <Trash2 className="w-4 h-4" />
@@ -220,13 +220,16 @@ const QueryPlayground = () => {
                 className={
                   "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all " +
                   (loading || !sql.trim()
-                    ? 'bg-gray-200 dark:bg-surface-300 text-gray-400 cursor-not-allowed'
-                    : 'btn-glow !from-emerald-500 !to-teal-600 !shadow-emerald-500/25 hover:!shadow-emerald-500/40')
+                    ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40')
                 }
-                style={!(loading || !sql.trim()) ? { background: 'linear-gradient(135deg, #10b981, #0d9488)' } : {}}
               >
                 {loading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
                 ) : (
                   <Play className="w-4 h-4" />
                 )}
@@ -239,15 +242,15 @@ const QueryPlayground = () => {
           <div className="relative">
             <div className="absolute top-3 left-3 flex flex-col gap-0.5 select-none pointer-events-none z-10">
               {sql.split('\n').map((_, i) => (
-                <span key={i} className="text-[11px] font-mono text-gray-300 dark:text-surface-400 leading-[20px] text-right w-6">
+                <span key={i} className="text-[11px] font-mono text-slate-600 leading-[20px] text-right w-6">
                   {i + 1}
                 </span>
               ))}
-              {!sql && <span className="text-[11px] font-mono text-gray-300 dark:text-surface-400 leading-[20px] text-right w-6">1</span>}
+              {!sql && <span className="text-[11px] font-mono text-slate-600 leading-[20px] text-right w-6">1</span>}
             </div>
             <textarea
               ref={textareaRef}
-              className="w-full min-h-[200px] max-h-[400px] font-mono text-sm p-3 pl-12 bg-gray-50/50 dark:bg-surface-50/50 text-gray-800 dark:text-gray-200 outline-none resize-y leading-[20px]"
+              className="w-full min-h-[200px] max-h-[400px] font-mono text-sm p-3 pl-12 bg-white/[0.02] text-slate-200 outline-none resize-y leading-[20px] placeholder-slate-600 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]"
               placeholder='SELECT TOP 100 * FROM "FAIR_TRAINING"."MY_TABLE"'
               value={sql}
               onChange={(e) => setSql(e.target.value)}
@@ -257,11 +260,11 @@ const QueryPlayground = () => {
           </div>
 
           {/* Status bar */}
-          <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 dark:bg-surface-100 border-t border-gray-200/50 dark:border-white/5 text-[10px] text-gray-400 dark:text-slate-500 font-medium">
+          <div className="flex items-center justify-between px-4 py-1.5 bg-white/[0.02] border-t border-white/[0.05] text-[10px] text-slate-500 font-medium">
             <div className="flex items-center gap-4">
               {KEYBOARD_HINTS.map(h => (
                 <span key={h.keys} className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 rounded bg-gray-200/80 dark:bg-surface-300 text-gray-500 dark:text-slate-400 font-mono text-[9px]">
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] text-slate-400 border border-white/[0.08] font-mono text-[9px]">
                     {h.keys}
                   </kbd>
                   {h.desc}
@@ -274,14 +277,14 @@ const QueryPlayground = () => {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-4 glass-card rounded-xl border-red-200/50 dark:border-red-500/10 animate-fade-up">
+          <div className="mb-4 p-4 bg-red-500/[0.06] border border-red-500/15 rounded-xl animate-fade-up">
             <div className="flex items-start gap-3">
-              <div className="p-1.5 bg-red-100 dark:bg-red-500/10 rounded-lg">
-                <AlertTriangle className="w-4 h-4 text-red-500" />
+              <div className="p-1.5 bg-red-500/10 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-red-600 dark:text-red-400">Hata</p>
-                <p className="text-xs font-mono text-red-500/80 dark:text-red-400/70 mt-1 whitespace-pre-wrap">{error}</p>
+                <p className="text-sm font-semibold text-red-400">Hata</p>
+                <p className="text-xs font-mono text-red-400/70 mt-1 whitespace-pre-wrap">{error}</p>
               </div>
             </div>
           </div>
@@ -289,33 +292,33 @@ const QueryPlayground = () => {
 
         {/* Results */}
         {result && (
-          <div className="flex-1 glass-card rounded-2xl overflow-hidden animate-fade-up min-h-0">
+          <div className="flex-1 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden animate-fade-up min-h-0">
             {/* Result Header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200/50 dark:border-white/5">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
               <div className="flex items-center gap-4 text-xs font-medium">
-                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1.5 text-emerald-400">
                   <Database className="w-3.5 h-3.5" />
                   {result.rowCount} satir
                 </span>
-                <span className="flex items-center gap-1.5 text-gray-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5 text-slate-400">
                   <Clock className="w-3.5 h-3.5" />
                   {result.duration}ms
                 </span>
                 {result.limitReached && (
-                  <span className="text-amber-500 font-semibold">Limit: 500 satir</span>
+                  <span className="text-amber-400 font-semibold">Limit: 500 satir</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={copyResult}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-all"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
                   title="Kopyala"
                 >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={exportCSV}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
                   title="CSV Indir"
                 >
                   <Download className="w-3.5 h-3.5" />
@@ -326,24 +329,24 @@ const QueryPlayground = () => {
             {/* Table */}
             <div className="overflow-auto max-h-[400px]">
               {result.rows?.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200/50 dark:divide-white/5">
-                  <thead className="bg-gray-50/80 dark:bg-surface-100 sticky top-0 z-10">
+                <table className="min-w-full divide-y divide-white/[0.05]">
+                  <thead className="bg-white/[0.04] sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase w-10">#</th>
+                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-emerald-400/80 uppercase w-10">#</th>
                       {Object.keys(result.rows[0]).map(key => (
-                        <th key={key} className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        <th key={key} className="px-3 py-2 text-left text-[10px] font-semibold text-emerald-400/80 uppercase tracking-wide whitespace-nowrap">
                           {key}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-white/[0.03] font-mono text-xs">
+                  <tbody className="divide-y divide-white/[0.03] font-mono text-xs">
                     {result.rows.map((row, i) => (
-                      <tr key={i} className="hover:bg-brand-50/30 dark:hover:bg-brand-500/[0.04] transition-colors">
-                        <td className="px-3 py-2 text-gray-300 dark:text-surface-400 text-[10px]">{i + 1}</td>
+                      <tr key={i} className="hover:bg-white/[0.03] transition-colors">
+                        <td className="px-3 py-2 text-slate-600 text-[10px]">{i + 1}</td>
                         {Object.values(row).map((val, idx) => (
-                          <td key={idx} className="px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">
-                            {val === null ? <span className="text-gray-300 dark:text-surface-400 italic">NULL</span> : String(val)}
+                          <td key={idx} className="px-3 py-2 whitespace-nowrap text-slate-300">
+                            {val === null ? <span className="text-slate-600 italic">NULL</span> : String(val)}
                           </td>
                         ))}
                       </tr>
@@ -351,7 +354,7 @@ const QueryPlayground = () => {
                   </tbody>
                 </table>
               ) : (
-                <div className="p-8 text-center text-gray-400 dark:text-slate-500 text-sm">
+                <div className="p-8 text-center text-slate-500 text-sm">
                   Sonuc bulunamadi
                 </div>
               )}
@@ -362,15 +365,15 @@ const QueryPlayground = () => {
 
       {/* Tips Panel */}
       {tipsOpen && (
-        <div className="w-72 flex-shrink-0 glass-card rounded-2xl overflow-hidden animate-fade-in flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/50 dark:border-white/5">
+        <div className="w-72 flex-shrink-0 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden animate-fade-in flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-bold text-gray-900 dark:text-white">SQL Rehberi</span>
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-bold text-white">SQL Rehberi</span>
             </div>
             <button
               onClick={() => setTipsOpen(false)}
-              className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
+              className="p-1 rounded text-slate-400 hover:text-white transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -379,7 +382,7 @@ const QueryPlayground = () => {
           <div className="flex-1 overflow-y-auto p-3 space-y-4">
             {TIPS.map((section, si) => (
               <div key={si}>
-                <p className="text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-[0.1em] mb-2 px-1">
+                <p className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-[0.1em] mb-2 px-1">
                   {section.category}
                 </p>
                 <div className="space-y-1">
@@ -387,9 +390,9 @@ const QueryPlayground = () => {
                     <button
                       key={ti}
                       onClick={() => insertTip(tip.sql)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-gray-600 dark:text-slate-400 hover:bg-brand-50/50 dark:hover:bg-brand-500/[0.06] hover:text-brand-600 dark:hover:text-brand-400 transition-all group flex items-center gap-2"
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/[0.04] hover:text-emerald-400 transition-all group flex items-center gap-2"
                     >
-                      <Zap className="w-3 h-3 opacity-0 group-hover:opacity-100 text-brand-500 transition-opacity flex-shrink-0" />
+                      <Zap className="w-3 h-3 opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity flex-shrink-0" />
                       <span className="truncate">{tip.label}</span>
                     </button>
                   ))}
@@ -398,19 +401,19 @@ const QueryPlayground = () => {
             ))}
 
             {/* Quick Reference */}
-            <div className="mt-2 p-3 rounded-xl bg-gray-50/80 dark:bg-surface-100/50 border border-gray-200/30 dark:border-white/5">
-              <p className="text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-[0.1em] mb-2">
+            <div className="mt-2 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <p className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-[0.1em] mb-2">
                 Hizli Referans
               </p>
-              <div className="space-y-1.5 text-[11px] font-mono text-gray-500 dark:text-slate-400">
-                <p><span className="text-amber-500">TOP N</span> - Satir limiti</p>
-                <p><span className="text-amber-500">LIKE '%x%'</span> - Metin arama</p>
-                <p><span className="text-amber-500">IS NULL</span> - Bos deger</p>
-                <p><span className="text-amber-500">GROUP BY</span> - Gruplama</p>
-                <p><span className="text-amber-500">ORDER BY .. DESC</span> - Siralama</p>
-                <p><span className="text-amber-500">COUNT(*)</span> - Sayim</p>
-                <p><span className="text-amber-500">DISTINCT</span> - Benzersiz</p>
-                <p><span className="text-amber-500">"COL"</span> - Kolon adi (cift tirnak)</p>
+              <div className="space-y-1.5 text-[11px] font-mono text-slate-400">
+                <p><span className="text-amber-400">TOP N</span> - Satir limiti</p>
+                <p><span className="text-amber-400">LIKE '%x%'</span> - Metin arama</p>
+                <p><span className="text-amber-400">IS NULL</span> - Bos deger</p>
+                <p><span className="text-amber-400">GROUP BY</span> - Gruplama</p>
+                <p><span className="text-amber-400">ORDER BY .. DESC</span> - Siralama</p>
+                <p><span className="text-amber-400">COUNT(*)</span> - Sayim</p>
+                <p><span className="text-amber-400">DISTINCT</span> - Benzersiz</p>
+                <p><span className="text-amber-400">"COL"</span> - Kolon adi (cift tirnak)</p>
               </div>
             </div>
           </div>
@@ -421,7 +424,7 @@ const QueryPlayground = () => {
       {!tipsOpen && (
         <button
           onClick={() => setTipsOpen(true)}
-          className="flex-shrink-0 w-10 glass-card rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-brand-500 transition-colors"
+          className="flex-shrink-0 w-10 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors"
           title="SQL Rehberini Ac"
         >
           <BookOpen className="w-4 h-4" />
