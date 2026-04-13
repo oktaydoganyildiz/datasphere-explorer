@@ -11,51 +11,51 @@ const MAX_HISTORY = 100;
 
 const TIPS = [
   {
-    category: 'Temel Sorgular',
+    category: 'Basic Queries',
     items: [
-      { label: 'Tablo onizleme', sql: 'SELECT TOP 100 * FROM "{schema}"."{table}"' },
-      { label: 'Satir sayisi', sql: 'SELECT COUNT(*) AS TOTAL FROM "{schema}"."{table}"' },
-      { label: 'Benzersiz degerler', sql: 'SELECT DISTINCT "{column}" FROM "{schema}"."{table}" ORDER BY 1' },
+      { label: 'Table preview', sql: 'SELECT TOP 100 * FROM "{schema}"."{table}"' },
+      { label: 'Row count', sql: 'SELECT COUNT(*) AS TOTAL FROM "{schema}"."{table}"' },
+      { label: 'Unique values', sql: 'SELECT DISTINCT "{column}" FROM "{schema}"."{table}" ORDER BY 1' },
     ]
   },
   {
-    category: 'Filtreleme & Siralama',
+    category: 'Filtering & Sorting',
     items: [
-      { label: 'Tarih filtresi', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -7)\nORDER BY START_TIME DESC" },
-      { label: 'Durum filtresi', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE STATUS = 'FAILED'\n  AND SPACE_ID != '$$global$$'" },
-      { label: 'LIKE arama', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE OBJECT_ID LIKE '%keyword%'" },
+      { label: 'Date filter', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -7)\nORDER BY START_TIME DESC" },
+      { label: 'Status filter', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE STATUS = 'FAILED'\n  AND SPACE_ID != '$$global$$'" },
+      { label: 'LIKE search', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE OBJECT_ID LIKE '%keyword%'" },
     ]
   },
   {
-    category: 'Gruplama & Agregasyon',
+    category: 'Grouping & Aggregation',
     items: [
-      { label: 'Durum ozeti', sql: "SELECT STATUS, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nGROUP BY STATUS\nORDER BY CNT DESC" },
-      { label: 'Gunluk dagılım', sql: "SELECT TO_DATE(START_TIME) AS GUN, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -30)\nGROUP BY TO_DATE(START_TIME)\nORDER BY GUN DESC" },
-      { label: 'Space bazında', sql: "SELECT SPACE_ID, STATUS, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE SPACE_ID != '$$global$$'\nGROUP BY SPACE_ID, STATUS\nORDER BY SPACE_ID, CNT DESC" },
+      { label: 'Status summary', sql: "SELECT STATUS, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nGROUP BY STATUS\nORDER BY CNT DESC" },
+      { label: 'Daily distribution', sql: "SELECT TO_DATE(START_TIME) AS LOG_DATE, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -30)\nGROUP BY TO_DATE(START_TIME)\nORDER BY LOG_DATE DESC" },
+      { label: 'By Space', sql: "SELECT SPACE_ID, STATUS, COUNT(*) AS CNT\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE SPACE_ID != '$$global$$'\nGROUP BY SPACE_ID, STATUS\nORDER BY SPACE_ID, CNT DESC" },
     ]
   },
   {
-    category: 'Sistem Bilgisi',
+    category: 'System Information',
     items: [
-      { label: 'Aktif baglantilar', sql: "SELECT CONNECTION_ID, USER_NAME, CONNECTION_STATUS,\n  CLIENT_HOST, START_TIME\nFROM SYS.M_CONNECTIONS\nWHERE CONNECTION_STATUS = 'RUNNING'" },
-      { label: 'Buyuk tablolar', sql: "SELECT TOP 20 SCHEMA_NAME, TABLE_NAME, RECORD_COUNT\nFROM SYS.M_TABLES\nWHERE SCHEMA_NAME = '{schema}'\nORDER BY RECORD_COUNT DESC" },
-      { label: 'Tablo kolonlari', sql: "SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE\nFROM SYS.TABLE_COLUMNS\nWHERE SCHEMA_NAME = '{schema}'\n  AND TABLE_NAME = '{table}'\nORDER BY POSITION" },
+      { label: 'Active connections', sql: "SELECT CONNECTION_ID, USER_NAME, CONNECTION_STATUS,\n  CLIENT_HOST, START_TIME\nFROM SYS.M_CONNECTIONS\nWHERE CONNECTION_STATUS = 'RUNNING'" },
+      { label: 'Large tables', sql: "SELECT TOP 20 SCHEMA_NAME, TABLE_NAME, RECORD_COUNT\nFROM SYS.M_TABLES\nWHERE SCHEMA_NAME = '{schema}'\nORDER BY RECORD_COUNT DESC" },
+      { label: 'Table columns', sql: "SELECT COLUMN_NAME, DATA_TYPE_NAME, LENGTH, IS_NULLABLE\nFROM SYS.TABLE_COLUMNS\nWHERE SCHEMA_NAME = '{schema}'\n  AND TABLE_NAME = '{table}'\nORDER BY POSITION" },
     ]
   },
   {
-    category: 'HANA Ozel',
+    category: 'HANA Specific',
     items: [
-      { label: 'Sure hesapla', sql: "SELECT TASK_LOG_ID, STATUS,\n  SECONDS_BETWEEN(START_TIME, END_TIME) AS SURE_SN\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE END_TIME IS NOT NULL\nORDER BY SURE_SN DESC" },
-      { label: 'String birlestirme', sql: "SELECT SCHEMA_NAME || '.' || TABLE_NAME AS TAM_AD\nFROM SYS.TABLES\nWHERE SCHEMA_NAME = '{schema}'" },
-      { label: 'NULL kontrol', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE END_TIME IS NULL\n  AND STATUS = 'RUNNING'" },
+      { label: 'Calculate duration', sql: "SELECT TASK_LOG_ID, STATUS,\n  SECONDS_BETWEEN(START_TIME, END_TIME) AS DURATION_SEC\nFROM \"{schema}\".\"TASK_LOGS\"\nWHERE END_TIME IS NOT NULL\nORDER BY DURATION_SEC DESC" },
+      { label: 'String concatenation', sql: "SELECT SCHEMA_NAME || '.' || TABLE_NAME AS FULL_NAME\nFROM SYS.TABLES\nWHERE SCHEMA_NAME = '{schema}'" },
+      { label: 'NULL check', sql: "SELECT * FROM \"{schema}\".\"TASK_LOGS\"\nWHERE END_TIME IS NULL\n  AND STATUS = 'RUNNING'" },
     ]
   }
 ];
 
 const KEYBOARD_HINTS = [
-  { keys: 'Ctrl + Enter', desc: 'Calistir' },
-  { keys: 'Ctrl + L', desc: 'Temizle' },
-  { keys: 'Tab', desc: 'Girinti' },
+  { keys: 'Ctrl + Enter', desc: 'Run' },
+  { keys: 'Ctrl + L', desc: 'Clear' },
+  { keys: 'Tab', desc: 'Indent' },
 ];
 
 const QueryPlayground = () => {
@@ -194,7 +194,7 @@ const QueryPlayground = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-white">SQL Editor</h2>
-                <p className="text-[11px] text-slate-500">Serbest SQL sorgusu yazin ve calistirin</p>
+                <p className="text-[11px] text-slate-500">Write and execute custom SQL queries</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -204,22 +204,23 @@ const QueryPlayground = () => {
                   className="px-2.5 py-1.5 text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-white rounded-lg focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)] outline-none"
                   value={selectedSchema || ''}
                   onChange={(e) => setSelectedSchema(e.target.value)}
+                  style={{ colorScheme: 'dark' }}
                 >
-                  <option value="" disabled>Schema sec</option>
-                  {schemas.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="" disabled className="bg-slate-900 text-white">Select Schema</option>
+                  {schemas.map(s => <option key={s} value={s} className="bg-slate-900 text-white">{s}</option>)}
                 </select>
               </div>
               <button
                 onClick={() => { setSql(''); setResult(null); setError(null); }}
                 className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                title="Temizle (Ctrl+L)"
+                title="Clear (Ctrl+L)"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setVoiceModalOpen(true)}
                 className="p-2 rounded-lg text-slate-400 hover:text-violet-400 hover:bg-violet-500/10 transition-all"
-                title="Sesli Sorgu"
+                title="Voice Query"
               >
                 <Mic className="w-4 h-4" />
               </button>
@@ -242,7 +243,7 @@ const QueryPlayground = () => {
                 ) : (
                   <Play className="w-4 h-4" />
                 )}
-                Calistir
+                Run
               </button>
             </div>
           </div>
@@ -280,7 +281,7 @@ const QueryPlayground = () => {
                 </span>
               ))}
             </div>
-            <span>{sql.length} karakter</span>
+            <span>{sql.length} characters</span>
           </div>
         </div>
 
@@ -292,7 +293,7 @@ const QueryPlayground = () => {
                 <AlertTriangle className="w-4 h-4 text-red-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-red-400">Hata</p>
+                <p className="text-sm font-semibold text-red-400">Error</p>
                 <p className="text-xs font-mono text-red-400/70 mt-1 whitespace-pre-wrap">{error}</p>
               </div>
             </div>
@@ -307,28 +308,28 @@ const QueryPlayground = () => {
               <div className="flex items-center gap-4 text-xs font-medium">
                 <span className="flex items-center gap-1.5 text-emerald-400">
                   <Database className="w-3.5 h-3.5" />
-                  {result.rowCount} satir
+                  {result.rowCount} rows
                 </span>
                 <span className="flex items-center gap-1.5 text-slate-400">
                   <Clock className="w-3.5 h-3.5" />
                   {result.duration}ms
                 </span>
                 {result.limitReached && (
-                  <span className="text-amber-400 font-semibold">Limit: 500 satir</span>
+                  <span className="text-amber-400 font-semibold">Limit: 500 rows</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={copyResult}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all"
-                  title="Kopyala"
+                  title="Copy"
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={exportCSV}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                  title="CSV Indir"
+                  title="Download CSV"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
@@ -364,7 +365,7 @@ const QueryPlayground = () => {
                 </table>
               ) : (
                 <div className="p-8 text-center text-slate-500 text-sm">
-                  Sonuc bulunamadi
+                  No results found
                 </div>
               )}
             </div>
@@ -378,7 +379,7 @@ const QueryPlayground = () => {
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-bold text-white">SQL Rehberi</span>
+              <span className="text-sm font-bold text-white">SQL Guide</span>
             </div>
             <button
               onClick={() => setTipsOpen(false)}
@@ -412,17 +413,17 @@ const QueryPlayground = () => {
             {/* Quick Reference */}
             <div className="mt-2 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
               <p className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-[0.1em] mb-2">
-                Hizli Referans
+                Quick Reference
               </p>
               <div className="space-y-1.5 text-[11px] font-mono text-slate-400">
-                <p><span className="text-amber-400">TOP N</span> - Satir limiti</p>
-                <p><span className="text-amber-400">LIKE '%x%'</span> - Metin arama</p>
-                <p><span className="text-amber-400">IS NULL</span> - Bos deger</p>
-                <p><span className="text-amber-400">GROUP BY</span> - Gruplama</p>
-                <p><span className="text-amber-400">ORDER BY .. DESC</span> - Siralama</p>
-                <p><span className="text-amber-400">COUNT(*)</span> - Sayim</p>
-                <p><span className="text-amber-400">DISTINCT</span> - Benzersiz</p>
-                <p><span className="text-amber-400">"COL"</span> - Kolon adi (cift tirnak)</p>
+                <p><span className="text-amber-400">TOP N</span> - Row limit</p>
+                <p><span className="text-amber-400">LIKE '%x%'</span> - Text search</p>
+                <p><span className="text-amber-400">IS NULL</span> - Null value</p>
+                <p><span className="text-amber-400">GROUP BY</span> - Grouping</p>
+                <p><span className="text-amber-400">ORDER BY .. DESC</span> - Sorting</p>
+                <p><span className="text-amber-400">COUNT(*)</span> - Count</p>
+                <p><span className="text-amber-400">DISTINCT</span> - Unique</p>
+                <p><span className="text-amber-400">"COL"</span> - Column name (double quotes)</p>
               </div>
             </div>
           </div>
@@ -434,11 +435,11 @@ const QueryPlayground = () => {
         <button
           onClick={() => setTipsOpen(true)}
           className="flex-shrink-0 w-10 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors"
-          title="SQL Rehberini Ac"
+          title="Open SQL Guide"
         >
           <BookOpen className="w-4 h-4" />
           <span className="text-[9px] font-bold uppercase tracking-wider" style={{ writingMode: 'vertical-rl' }}>
-            Rehber
+            Guide
           </span>
         </button>
       )}
