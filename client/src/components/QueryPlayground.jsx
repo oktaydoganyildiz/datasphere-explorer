@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Play, Trash2, Database, Clock, AlertTriangle, Copy, Check,
-  Download, Code2, BookOpen, ChevronRight, Zap, Table as TableIcon
+  Download, Code2, BookOpen, ChevronRight, Zap, Table as TableIcon, Mic
 } from 'lucide-react';
 import useConnectionStore from '../store/connectionStore';
+import VoiceQueryModal from './VoiceQueryModal';
 
 const STORAGE_KEY = 'datasphere_query_history';
 const MAX_HISTORY = 100;
@@ -65,6 +66,7 @@ const QueryPlayground = () => {
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(true);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const textareaRef = useRef(null);
 
   const addToHistory = (queryStr, success, rowCount, duration) => {
@@ -213,6 +215,13 @@ const QueryPlayground = () => {
                 title="Temizle (Ctrl+L)"
               >
                 <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setVoiceModalOpen(true)}
+                className="p-2 rounded-lg text-slate-400 hover:text-violet-400 hover:bg-violet-500/10 transition-all"
+                title="Sesli Sorgu"
+              >
+                <Mic className="w-4 h-4" />
               </button>
               <button
                 onClick={handleExecute}
@@ -433,6 +442,16 @@ const QueryPlayground = () => {
           </span>
         </button>
       )}
+
+      <VoiceQueryModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+        onSqlGenerated={(generatedSql) => {
+          setSql(generatedSql);
+          setVoiceModalOpen(false);
+        }}
+        selectedSchema={selectedSchema}
+      />
     </div>
   );
 };
