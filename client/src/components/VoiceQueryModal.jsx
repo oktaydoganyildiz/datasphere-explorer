@@ -3,7 +3,7 @@ import { Mic, MicOff, X, Zap, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const SMARTQUERY_KEY = 'smartquery_api_key';
 
-const VoiceQueryModal = ({ isOpen, onClose, onSqlGenerated, selectedSchema }) => {
+const VoiceQueryModal = ({ isOpen = false, onClose = () => {}, onSqlGenerated = () => {}, selectedSchema }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [language, setLanguage] = useState('tr-TR');
@@ -140,7 +140,7 @@ const VoiceQueryModal = ({ isOpen, onClose, onSqlGenerated, selectedSchema }) =>
           <div className="flex items-center gap-2">
             <div className="flex bg-white/[0.06] rounded-lg p-0.5 text-xs font-semibold">
               <button
-                onClick={() => { setLanguage('tr-TR'); setTranscript(''); }}
+                onClick={() => { if (isListening) stopListening(); setLanguage('tr-TR'); setTranscript(''); }}
                 className={`px-2.5 py-1 rounded-md transition-all ${
                   language === 'tr-TR'
                     ? 'bg-violet-500 text-white shadow-sm'
@@ -150,7 +150,7 @@ const VoiceQueryModal = ({ isOpen, onClose, onSqlGenerated, selectedSchema }) =>
                 TR
               </button>
               <button
-                onClick={() => { setLanguage('en-US'); setTranscript(''); }}
+                onClick={() => { if (isListening) stopListening(); setLanguage('en-US'); setTranscript(''); }}
                 className={`px-2.5 py-1 rounded-md transition-all ${
                   language === 'en-US'
                     ? 'bg-violet-500 text-white shadow-sm'
