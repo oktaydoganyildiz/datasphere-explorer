@@ -344,8 +344,8 @@ Important:
                 </button>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">
-                  Google AI Studio
+                <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">
+                  console.groq.com
                 </a>'dan ucretsiz API key alabilirsiniz. Key tarayicida saklanir.
               </p>
             </div>

@@ -10,7 +10,7 @@ class AiService {
   init(apiKey) {
     this.openai = new OpenAI({
       apiKey: apiKey,
-      baseURL: "https://openrouter.ai/api/v1"
+      baseURL: "https://api.groq.com/openai/v1"
     });
   }
 
@@ -122,7 +122,7 @@ Return ONLY the JSON object, no markdown, no explanations outside JSON.`;
 
     const generateFn = async () => {
       const completion = await this.openai.chat.completions.create({
-        model: "google/gemma-3-27b-it:free",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: enhancedPrompt }
