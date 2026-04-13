@@ -32,6 +32,37 @@ class AiService {
     }
   }
 
+  async suggestTableMatch(invalidName, validTableList) {
+    if (!this.openai || !Array.isArray(validTableList) || validTableList.length === 0) {
+      return [];
+    }
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: 'Return ONLY a JSON array of table suggestion objects like [{"table":"TASK_LOGS","source":"ai"}].'
+          },
+          {
+            role: "user",
+            content: `Invalid table: ${invalidName}\nAvailable tables: ${validTableList.join(', ')}`
+          }
+        ],
+        temperature: 0
+      });
+
+      let text = completion.choices?.[0]?.message?.content || '';
+      text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed.slice(0, 3) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
   // Enhance user prompt to make it clearer for the AI
   enhancePrompt(userPrompt) {
     const lowerPrompt = userPrompt.toLowerCase();
