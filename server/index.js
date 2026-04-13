@@ -6,7 +6,7 @@ require('dotenv').config();
 const connectionRoutes = require('./routes/connection');
 const tablesRoutes = require('./routes/tables');
 const exportRoutes = require('./routes/export');
-const importRoutes = require('./routes/import');   // ← YENİ
+const importRoutes = require('./routes/import');   // ← NEW
 const hanaService = require('./services/hanaService');
 
 const app = express();
@@ -15,14 +15,14 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));          // CSV için limit artırıldı
+app.use(express.json({ limit: '50mb' }));          // Increased limit for CSV
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Routes
 app.use('/api/connection', connectionRoutes);
 app.use('/api/tables', tablesRoutes);
 app.use('/api/export', exportRoutes);
-app.use('/api/import', importRoutes);              // ← YENİ
+app.use('/api/import', importRoutes);              // ← NEW
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/query', require('./routes/query'));

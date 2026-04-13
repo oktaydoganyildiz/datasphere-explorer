@@ -67,44 +67,44 @@ class AiService {
   enhancePrompt(userPrompt) {
     const lowerPrompt = userPrompt.toLowerCase();
     
-    // Common Turkish to clearer prompt mappings
+    // Common mappings to clearer prompt instructions
     const enhancements = {
       // Time-related
-      'bugün': 'today (last 24 hours)',
-      'dün': 'yesterday',
-      'bu hafta': 'this week (last 7 days)',
-      'geçen hafta': 'last week',
-      'bu ay': 'this month',
-      'son': 'last',
+      'today': 'today (last 24 hours)',
+      'yesterday': 'yesterday',
+      'this week': 'this week (last 7 days)',
+      'last week': 'last week',
+      'this month': 'this month',
+      'last': 'last',
       
       // Status-related
-      'hatalı': 'failed or error status',
-      'başarısız': 'failed status',
-      'çalışan': 'running status',
-      'tamamlanan': 'completed status',
+      'failed': 'failed status',
+      'error': 'error status',
+      'running': 'running status',
+      'completed': 'completed status',
       
       // Actions
-      'göster': 'show me',
-      'listele': 'list',
-      'bul': 'find',
-      'getir': 'get',
-      'say': 'count'
+      'show': 'show me',
+      'list': 'list',
+      'find': 'find',
+      'get': 'get',
+      'count': 'count'
     };
 
     let enhanced = userPrompt;
     
-    // Add context hints
-    if (lowerPrompt.includes('task') || lowerPrompt.includes('görev') || lowerPrompt.includes('iş')) {
+    // Add context hints based on common keywords
+    if (lowerPrompt.includes('task') || lowerPrompt.includes('job') || lowerPrompt.includes('work')) {
       enhanced += ' (from TASK_LOGS table)';
     }
     
-    if (lowerPrompt.includes('user') || lowerPrompt.includes('kullanıcı')) {
+    if (lowerPrompt.includes('user')) {
       enhanced += ' (use "USER" column with quotes)';
     }
     
     // If asking for time period but no specific time mentioned
-    if ((lowerPrompt.includes('son') || lowerPrompt.includes('last')) && 
-        !lowerPrompt.match(/\d+\s*(gün|gun|day|saat|hour|hafta|week)/)) {
+    if (lowerPrompt.includes('last') && 
+        !lowerPrompt.match(/\d+\s*(day|hour|week|month)/)) {
       enhanced += ' (last 7 days)';
     }
 
@@ -132,9 +132,9 @@ Available Tables/Views: ${schemaInfo.context}
 
 IMPORTANT INSTRUCTIONS:
 0. ${tableConstraint}
-1. User asks questions in Turkish or English - understand BOTH languages
+1. Understand queries in English
 2. Return ONLY a JSON object with exactly two fields: "sql" and "explanation"
-3. "explanation" must be in Turkish (brief, 1-2 sentences)
+3. "explanation" MUST be in English (brief, 1-2 sentences)
 4. Use double quotes for SQL identifiers: "COLUMN_NAME"
 5. Use single quotes for string literals: 'value'
 6. For USER column, ALWAYS use "USER" with quotes (it's a reserved word)
@@ -144,14 +144,14 @@ IMPORTANT INSTRUCTIONS:
 10. Order by time DESC for recent results
 
 Common Queries:
-- "başarısız görevler" = STATUS = 'FAILED'
-- "son X gün" = START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -X)
-- "en uzun süren" = ORDER BY SECONDS_BETWEEN(START_TIME, END_TIME) DESC
+- "failed tasks" = STATUS = 'FAILED'
+- "last X days" = START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -X)
+- "longest running" = ORDER BY SECONDS_BETWEEN(START_TIME, END_TIME) DESC
 
 Example output format (MUST be valid JSON):
 {
   "sql": "SELECT TOP 10 TASK_LOG_ID, SPACE_ID, OBJECT_ID, STATUS, START_TIME, END_TIME FROM DWC_GLOBAL.TASK_LOGS WHERE STATUS = 'FAILED' AND SPACE_ID != '$$global$$' AND START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -7) ORDER BY START_TIME DESC",
-  "explanation": "Son 7 gündeki başarısız görevleri en yeniden eskiye doğru listeler"
+  "explanation": "Lists failed tasks from the last 7 days ordered from newest to oldest."
 }
 
 Return ONLY the JSON object, no markdown, no explanations outside JSON.`;
@@ -199,11 +199,11 @@ Return ONLY the JSON object, no markdown, no explanations outside JSON.`;
         if (sqlMatch) {
           return {
             sql: sqlMatch[0].trim(),
-            explanation: 'SQL sorgusu oluşturuldu (otomatik çıkarım)'
+            explanation: 'SQL query generated (automatic extraction)'
           };
         }
         
-        throw new Error('AI yanıtı anlaşılamadı. Lütfen sorunuzu daha açık bir şekilde yazın.');
+        throw new Error('AI response not understood. Please rephrase your query.');
       }
     };
 
