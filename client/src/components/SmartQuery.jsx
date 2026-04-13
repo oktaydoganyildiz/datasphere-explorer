@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles, Send, Play, Copy, Check, ChevronDown, ChevronUp,
   Database, Clock, AlertTriangle, Table2, BarChart3, RefreshCw,
-  Lightbulb, Trash2, Download, Key, Settings
+  Lightbulb, Trash2, Download, Key
 } from 'lucide-react';
 import useConnectionStore from '../store/connectionStore';
 import { FadeScaleIn } from './PageTransition';
 
 const STORAGE_KEY = 'smartquery_api_key';
+const SCHEMA_STORAGE_KEY = 'smartquery_schema';
+const TABLE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 // Pre-built SQL templates that work without AI
 const SQL_TEMPLATES = [
@@ -88,15 +90,20 @@ ORDER BY "USER", TASK_COUNT DESC`
 ];
 
 const SmartQuery = () => {
-  const { selectedSchema } = useConnectionStore();
+  const { selectedSchema, schemas, connectionConfig, setSelectedSchema } = useConnectionStore();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showExamples, setShowExamples] = useState(true);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
   const [showSettings, setShowSettings] = useState(false);
+  const [tableCache, setTableCache] = useState({});
+  const [tableList, setTableList] = useState([]);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableError, setTableError] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const connectionKeyRef = useRef(null);
 
   // Save API key to localStorage
   useEffect(() => {
@@ -112,6 +119,20 @@ const SmartQuery = () => {
 
   // Build schema context for AI
   const getSchemaContext = () => {
+    if (tableList.length > 0) {
+      return `
+Schema: ${selectedSchema || 'DWC_GLOBAL'}
+Available Tables/Views:
+${tableList.map((table) => `- ${table}`).join('\n')}
+
+Important:
+- Use "USER" (quoted) for user column
+- STATUS values: COMPLETED, FAILED, RUNNING
+- SEVERITY values: ERROR, WARNING, INFO
+- SPACE_ID = '$$global$$' for system tasks, exclude these for user tasks
+      `.trim();
+    }
+
     return `
 Schema: DWC_GLOBAL (SAP DataSphere monitoring tables)
 Key Tables:
@@ -127,6 +148,84 @@ Important:
 - SPACE_ID = '$$global$$' for system tasks, exclude these for user tasks
     `.trim();
   };
+
+  const getCacheKey = (schemaName) => {
+    const host = connectionConfig?.host || 'offline';
+    const port = connectionConfig?.port || '0';
+    return `${host}:${port}/${schemaName}`;
+  };
+
+  const fetchTables = async (schemaName, { forceRefresh = false } = {}) => {
+    if (!schemaName) return [];
+
+    const cacheKey = getCacheKey(schemaName);
+    const cached = tableCache[cacheKey];
+    const isFresh = cached && Date.now() - cached.timestamp < TABLE_CACHE_TTL;
+
+    if (!forceRefresh && isFresh) {
+      setTableList(cached.tables);
+      return cached.tables;
+    }
+
+    setTableLoading(true);
+    setTableError(null);
+
+    try {
+      const res = await fetch(`/api/tables/list?schema=${encodeURIComponent(schemaName)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Tablo listesi alınamadı');
+      }
+
+      setTableCache((prev) => ({
+        ...prev,
+        [cacheKey]: {
+          tables: data.tables,
+          timestamp: Date.now()
+        }
+      }));
+      setTableList(data.tables);
+      return data.tables;
+    } catch (err) {
+      setTableError(err.message);
+      setTableList([]);
+      return [];
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
+    if (savedSchema && schemas.includes(savedSchema) && savedSchema !== selectedSchema) {
+      setSelectedSchema(savedSchema);
+    }
+  }, [schemas, selectedSchema, setSelectedSchema]);
+
+  useEffect(() => {
+    if (selectedSchema) {
+      localStorage.setItem(SCHEMA_STORAGE_KEY, selectedSchema);
+      fetchTables(selectedSchema);
+    }
+  }, [selectedSchema]);
+
+  useEffect(() => {
+    const connectionKey = connectionConfig
+      ? `${connectionConfig.host}:${connectionConfig.port}:${connectionConfig.user}`
+      : null;
+
+    if (connectionKeyRef.current === null) {
+      connectionKeyRef.current = connectionKey;
+      return;
+    }
+
+    if (connectionKeyRef.current !== connectionKey) {
+      setTableCache({});
+      setTableList([]);
+      setTableError(null);
+      connectionKeyRef.current = connectionKey;
+    }
+  }, [connectionConfig?.host, connectionConfig?.port, connectionConfig?.user]);
 
   const handleSend = async (questionText = null) => {
     const question = questionText || input.trim();
@@ -157,10 +256,11 @@ Important:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiKey: apiKey,
+          apiKey,
           prompt: question,
           schema: selectedSchema || 'DWC_GLOBAL',
-          context: getSchemaContext()
+          context: getSchemaContext(),
+          tableList
         })
       });
 
@@ -176,7 +276,8 @@ Important:
         content: aiData.explanation || 'Iste olusturdugun SQL sorgusu:',
         sql: aiData.sql,
         timestamp: new Date(),
-        status: 'generated'
+        status: 'generated',
+        invalidTables: aiData.invalidTables || []
       };
       setMessages(prev => [...prev, aiMsg]);
 
@@ -275,6 +376,24 @@ Important:
     setShowExamples(true);
   };
 
+  const applySuggestion = (msgIndex, invalidName, suggestedTable) => {
+    setMessages((prev) => prev.map((message, index) => {
+      if (index !== msgIndex || !message.sql) {
+        return message;
+      }
+
+      return {
+        ...message,
+        sql: message.sql.replaceAll(invalidName, suggestedTable),
+        invalidTables: (message.invalidTables || []).filter((item) => item.name !== invalidName)
+      };
+    }));
+  };
+
+  const schemaOptions = schemas.length > 0
+    ? schemas
+    : [selectedSchema || 'DWC_GLOBAL'];
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -298,6 +417,27 @@ Important:
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedSchema || schemaOptions[0] || 'DWC_GLOBAL'}
+                  onChange={(e) => setSelectedSchema(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white/[0.04] border border-white/[0.08] text-slate-200 rounded-lg outline-none"
+                >
+                  {schemaOptions.map((schemaName) => (
+                    <option key={schemaName} value={schemaName}>
+                      {schemaName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => fetchTables(selectedSchema || schemaOptions[0], { forceRefresh: true })}
+                  disabled={!(selectedSchema || schemaOptions[0]) || tableLoading}
+                  className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition disabled:opacity-40"
+                  title="Tablo listesini yenile"
+                >
+                  <RefreshCw className={`w-4 h-4 ${tableLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded-lg transition ${
@@ -320,6 +460,13 @@ Important:
               )}
             </div>
           </div>
+
+          {tableError && (
+            <div className="mt-3 flex items-start gap-2 p-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-200">{tableError}</p>
+            </div>
+          )}
 
           {/* API Key Settings Panel */}
           {showSettings && (
@@ -431,46 +578,71 @@ Important:
 
                   {/* SQL Block */}
                   {msg.sql && (
-                    <div className="bg-black/40 rounded-xl overflow-hidden border border-white/[0.08]">
-                      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.04] border-b border-white/[0.08]">
-                        <span className="text-xs text-slate-500 font-medium">SQL</span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => copyToClipboard(msg.sql)}
-                            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.06] rounded transition"
-                            title="Kopyala"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => executeSQL(idx, msg.sql)}
-                            disabled={msg.status === 'executing'}
-                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all ${
-                              msg.status === 'executing'
-                                ? 'bg-white/[0.04] text-slate-500'
-                                : msg.status === 'success'
-                                ? 'bg-emerald-500/80 text-white shadow-lg shadow-emerald-500/20'
-                                : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30'
-                            }`}
-                          >
-                            {msg.status === 'executing' ? (
-                              <div className="flex gap-0.5">
-                                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                              </div>
-                            ) : msg.status === 'success' ? (
-                              <Check className="w-3.5 h-3.5" />
-                            ) : (
-                              <Play className="w-3.5 h-3.5" />
-                            )}
-                            {msg.status === 'executing' ? 'Calisiyor...' : msg.status === 'success' ? 'Calistirildi' : 'Calistir'}
-                          </button>
+                    <div className="space-y-3">
+                      <div className="bg-black/40 rounded-xl overflow-hidden border border-white/[0.08]">
+                        <div className="flex items-center justify-between px-3 py-2 bg-white/[0.04] border-b border-white/[0.08]">
+                          <span className="text-xs text-slate-500 font-medium">SQL</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => copyToClipboard(msg.sql)}
+                              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.06] rounded transition"
+                              title="Kopyala"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => executeSQL(idx, msg.sql)}
+                              disabled={msg.status === 'executing'}
+                              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition-all ${
+                                msg.status === 'executing'
+                                  ? 'bg-white/[0.04] text-slate-500'
+                                  : msg.status === 'success'
+                                  ? 'bg-emerald-500/80 text-white shadow-lg shadow-emerald-500/20'
+                                  : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30'
+                              }`}
+                            >
+                              {msg.status === 'executing' ? (
+                                <div className="flex gap-0.5">
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                </div>
+                              ) : msg.status === 'success' ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <Play className="w-3.5 h-3.5" />
+                              )}
+                              {msg.status === 'executing' ? 'Calisiyor...' : msg.status === 'success' ? 'Calistirildi' : 'Calistir'}
+                            </button>
+                          </div>
                         </div>
+                        <pre className="p-4 text-sm text-emerald-400 font-mono overflow-x-auto">
+                          <code>{msg.sql}</code>
+                        </pre>
                       </div>
-                      <pre className="p-4 text-sm text-emerald-400 font-mono overflow-x-auto">
-                        <code>{msg.sql}</code>
-                      </pre>
+
+                      {msg.invalidTables?.length > 0 && (
+                        <div className="space-y-2">
+                          {msg.invalidTables.map((item) => (
+                            <div key={item.name} className="px-4 py-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl">
+                              <p className="text-sm text-amber-300">
+                                <strong>{item.name}</strong> bulunamadi. Bunu mu demek istediniz?
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {item.suggestions.map((suggestion) => (
+                                  <button
+                                    key={`${item.name}-${suggestion.table}`}
+                                    onClick={() => applySuggestion(idx, item.name, suggestion.table)}
+                                    className="px-3 py-1.5 text-xs rounded-full bg-amber-500/15 text-amber-200 hover:bg-amber-500/25 transition"
+                                  >
+                                    {suggestion.table}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

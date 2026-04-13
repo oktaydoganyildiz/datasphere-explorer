@@ -3,10 +3,11 @@ const express = require('express');
 const router = express.Router();
 const aiService = require('../services/aiService');
 const hanaService = require('../services/hanaService');
+const tableValidationService = require('../services/tableValidationService');
 
 router.post('/generate-sql', async (req, res, next) => {
   try {
-    const { apiKey, prompt, schema, context } = req.body;
+    const { apiKey, prompt, schema, context, tableList = [] } = req.body;
 
     // API key optional - use env if not provided
     const key = apiKey || process.env.OPENAI_API_KEY;
@@ -51,12 +52,27 @@ router.post('/generate-sql', async (req, res, next) => {
       schemaContext = 'TASK_LOGS (TASK_LOG_ID, SPACE_ID, APPLICATION_ID, OBJECT_ID, STATUS, "USER", START_TIME, END_TIME), TASK_CHAIN_RUNS, TASK_CHAIN_RUN_NODES, TASK_LOG_MESSAGES';
     }
     
-    const result = await aiService.generateSql(prompt, { schema: targetSchema, context: schemaContext });
+    const result = await aiService.generateSql(prompt, {
+      schema: targetSchema,
+      context: schemaContext,
+      tableList
+    });
+
+    const referencedTables = tableValidationService.extractTableNames(result.sql);
+    const invalidTables = hanaService.connection
+      ? await tableValidationService.validateTables(
+          referencedTables,
+          targetSchema,
+          hanaService,
+          aiService
+        )
+      : [];
     
     res.json({ 
       success: true, 
       sql: result.sql,
-      explanation: result.explanation
+      explanation: result.explanation,
+      invalidTables
     });
 
   } catch (err) {

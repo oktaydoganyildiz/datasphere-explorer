@@ -20,6 +20,22 @@ router.get('/schemas', checkConnection, async (req, res, next) => {
   }
 });
 
+// Get flattened table names for Smart Query
+router.get('/list', checkConnection, async (req, res, next) => {
+  try {
+    const { schema } = req.query;
+
+    if (!schema || !schema.trim()) {
+      return res.status(400).json({ success: false, message: 'schema query parameter is required.' });
+    }
+
+    const tables = await hanaService.getTables(schema.trim());
+    res.json({ tables: tables.map((row) => row.TABLE_NAME) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Get Tables for a Schema
 router.get('/:schema', checkConnection, async (req, res, next) => {
   try {

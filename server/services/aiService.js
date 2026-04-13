@@ -121,12 +121,17 @@ class AiService {
     console.log(`[AI] Original: "${userPrompt}"`);
     console.log(`[AI] Enhanced: "${enhancedPrompt}"`);
 
+    const tableConstraint = schemaInfo.tableList?.length
+      ? `Use ONLY these tables/views when writing SQL: ${schemaInfo.tableList.join(', ')}`
+      : '';
+
     const systemPrompt = `You are an expert SAP HANA SQL developer specializing in SAP DataSphere monitoring.
       
 Schema: "${schemaInfo.schema}"
 Available Tables/Views: ${schemaInfo.context}
 
 IMPORTANT INSTRUCTIONS:
+0. ${tableConstraint}
 1. User asks questions in Turkish or English - understand BOTH languages
 2. Return ONLY a JSON object with exactly two fields: "sql" and "explanation"
 3. "explanation" must be in Turkish (brief, 1-2 sentences)
