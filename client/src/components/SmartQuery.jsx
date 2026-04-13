@@ -11,11 +11,28 @@ const STORAGE_KEY = 'smartquery_api_key';
 const SCHEMA_STORAGE_KEY = 'smartquery_schema';
 const TABLE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
+const readLocalStorage = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch (err) {
+    console.warn(`[SmartQuery] localStorage read failed for ${key}:`, err?.message || err);
+    return null;
+  }
+};
+
+const writeLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    console.warn(`[SmartQuery] localStorage write failed for ${key}:`, err?.message || err);
+  }
+};
+
 // Pre-built SQL templates that work without AI
 const SQL_TEMPLATES = [
   {
     icon: '🔴',
-    text: 'Son 24 saatte failed olan task\'lar',
+    text: 'Tasks failed in the last 24 hours',
     sql: `SELECT TASK_LOG_ID, SPACE_ID, APPLICATION_ID, OBJECT_ID, STATUS, "USER", START_TIME, END_TIME
 FROM DWC_GLOBAL.TASK_LOGS
 WHERE STATUS = 'FAILED'
@@ -25,7 +42,7 @@ ORDER BY START_TIME DESC`
   },
   {
     icon: '⛓️',
-    text: 'Failed Task Chain\'ler (son 7 gün)',
+    text: 'Failed Task Chains (last 7 days)',
     sql: `SELECT TOP 20 cr.TECHNICAL_NAME, cr.SPACE_ID,
   tl.TASK_LOG_ID, tl.STATUS, tl."USER", tl.START_TIME, tl.END_TIME
 FROM DWC_GLOBAL.TASK_CHAIN_RUNS cr
@@ -36,7 +53,7 @@ ORDER BY tl.START_TIME DESC`
   },
   {
     icon: '📊',
-    text: 'Space bazında task özeti',
+    text: 'Task summary by space',
     sql: `SELECT SPACE_ID, STATUS, COUNT(*) as TASK_COUNT
 FROM DWC_GLOBAL.TASK_LOGS
 WHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -7)
@@ -46,7 +63,7 @@ ORDER BY SPACE_ID, TASK_COUNT DESC`
   },
   {
     icon: '⏱️',
-    text: 'En uzun süren 10 görev',
+    text: '10 longest-running tasks',
     sql: `SELECT TOP 10 TASK_LOG_ID, SPACE_ID, OBJECT_ID, STATUS,
   SECONDS_BETWEEN(START_TIME, END_TIME) as DURATION_SEC,
   START_TIME, END_TIME
@@ -57,7 +74,7 @@ ORDER BY DURATION_SEC DESC`
   },
   {
     icon: '🔗',
-    text: 'Task Chain geçmişi',
+    text: 'Task Chain history',
     sql: `SELECT cr.CHAIN_TASK_LOG_ID, cr.TECHNICAL_NAME, cr.SPACE_ID,
   tl.STATUS, tl."USER", tl.START_TIME, tl.END_TIME,
   SECONDS_BETWEEN(tl.START_TIME, tl.END_TIME) as DURATION_SEC
@@ -67,7 +84,7 @@ ORDER BY tl.START_TIME DESC`
   },
   {
     icon: '⚠️',
-    text: 'Hata mesajları (ERROR/WARNING)',
+    text: 'Error messages (ERROR/WARNING)',
     sql: `SELECT m.TASK_LOG_ID, m.SEVERITY, m.TEXT, m.TIMESTAMP,
   tl.OBJECT_ID, tl.SPACE_ID
 FROM DWC_GLOBAL.TASK_LOG_MESSAGES m
@@ -78,7 +95,7 @@ ORDER BY m.TIMESTAMP DESC`
   },
   {
     icon: '👤',
-    text: 'Kullanıcı bazında istatistikler',
+    text: 'User-based statistics',
     sql: `SELECT "USER", STATUS, COUNT(*) as TASK_COUNT
 FROM DWC_GLOBAL.TASK_LOGS
 WHERE START_TIME > ADD_DAYS(CURRENT_TIMESTAMP, -7)
@@ -95,7 +112,7 @@ const SmartQuery = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showExamples, setShowExamples] = useState(true);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEY) || '');
+  const [apiKey, setApiKey] = useState(() => readLocalStorage(STORAGE_KEY) || '');
   const [showSettings, setShowSettings] = useState(false);
   const [tableCache, setTableCache] = useState({});
   const [tableList, setTableList] = useState([]);
@@ -104,11 +121,14 @@ const SmartQuery = () => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const connectionKeyRef = useRef(null);
+  const schemaInitRef = useRef(false);
+  const safeSchemas = Array.isArray(schemas) ? schemas.filter(Boolean) : [];
+  const safeTableList = Array.isArray(tableList) ? tableList : [];
 
   // Save API key to localStorage
   useEffect(() => {
     if (apiKey) {
-      localStorage.setItem(STORAGE_KEY, apiKey);
+      writeLocalStorage(STORAGE_KEY, apiKey);
     }
   }, [apiKey]);
 
@@ -119,11 +139,11 @@ const SmartQuery = () => {
 
   // Build schema context for AI
   const getSchemaContext = () => {
-    if (tableList.length > 0) {
+    if (safeTableList.length > 0) {
       return `
 Schema: ${selectedSchema || 'DWC_GLOBAL'}
 Available Tables/Views:
-${tableList.map((table) => `- ${table}`).join('\n')}
+${safeTableList.map((table) => `- ${table}`).join('\n')}
 
 Important:
 - Use "USER" (quoted) for user column
@@ -163,8 +183,9 @@ Important:
     const isFresh = cached && Date.now() - cached.timestamp < TABLE_CACHE_TTL;
 
     if (!forceRefresh && isFresh) {
-      setTableList(cached.tables);
-      return cached.tables;
+      const cachedTables = Array.isArray(cached.tables) ? cached.tables : [];
+      setTableList(cachedTables);
+      return cachedTables;
     }
 
     setTableLoading(true);
@@ -174,18 +195,26 @@ Important:
       const res = await fetch(`/api/tables/list?schema=${encodeURIComponent(schemaName)}`);
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Tablo listesi alınamadı');
+        throw new Error(data.message || 'Could not fetch table list');
       }
+      const rawTables = Array.isArray(data?.tables)
+        ? data.tables
+        : Array.isArray(data)
+        ? data.map((row) => row?.TABLE_NAME)
+        : [];
+      const normalizedTables = rawTables
+        .map((name) => String(name || '').trim())
+        .filter(Boolean);
 
       setTableCache((prev) => ({
         ...prev,
         [cacheKey]: {
-          tables: data.tables,
+          tables: normalizedTables,
           timestamp: Date.now()
         }
       }));
-      setTableList(data.tables);
-      return data.tables;
+      setTableList(normalizedTables);
+      return normalizedTables;
     } catch (err) {
       setTableError(err.message);
       setTableList([]);
@@ -196,15 +225,20 @@ Important:
   };
 
   useEffect(() => {
-    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
-    if (savedSchema && schemas.includes(savedSchema) && savedSchema !== selectedSchema) {
+    if (schemaInitRef.current || !safeSchemas.length) {
+      return;
+    }
+
+    schemaInitRef.current = true;
+    const savedSchema = readLocalStorage(SCHEMA_STORAGE_KEY);
+    if (savedSchema && safeSchemas.includes(savedSchema) && savedSchema !== selectedSchema) {
       setSelectedSchema(savedSchema);
     }
   }, [schemas, selectedSchema, setSelectedSchema]);
 
   useEffect(() => {
     if (selectedSchema) {
-      localStorage.setItem(SCHEMA_STORAGE_KEY, selectedSchema);
+      writeLocalStorage(SCHEMA_STORAGE_KEY, selectedSchema);
       fetchTables(selectedSchema);
     }
   }, [selectedSchema]);
@@ -235,7 +269,7 @@ Important:
       setShowSettings(true);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Lutfen once OpenRouter API anahtarinizi ayarlara girin.',
+        content: 'Please enter your OpenRouter API key in settings first.',
         error: true,
         timestamp: new Date()
       }]);
@@ -273,7 +307,7 @@ Important:
       // Add AI response with SQL
       const aiMsg = {
         role: 'assistant',
-        content: aiData.explanation || 'Iste olusturdugun SQL sorgusu:',
+        content: aiData.explanation || 'Here is your generated SQL query:',
         sql: aiData.sql,
         timestamp: new Date(),
         status: 'generated',
@@ -284,7 +318,7 @@ Important:
     } catch (err) {
       const errorMsg = {
         role: 'assistant',
-        content: `Uzgunum, bir hata olustu: ${err.message}`,
+        content: `Sorry, an error occurred: ${err.message}`,
         error: true,
         timestamp: new Date()
       };
@@ -304,7 +338,7 @@ Important:
     // Add assistant message with the pre-built SQL
     const aiMsg = {
       role: 'assistant',
-      content: 'Hazir sorgu sablonu kullaniliyor:',
+      content: 'Using ready-made query template:',
       sql: template.sql,
       timestamp: new Date(),
       status: 'generated'
@@ -390,8 +424,8 @@ Important:
     }));
   };
 
-  const schemaOptions = schemas.length > 0
-    ? schemas
+  const schemaOptions = safeSchemas.length > 0
+    ? safeSchemas
     : [selectedSchema || 'DWC_GLOBAL'];
 
   const handleKeyDown = (e) => {
@@ -413,7 +447,7 @@ Important:
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">Smart Query</h2>
-                <p className="text-xs text-slate-400">Dogal dilde soru sor, SQL al, sonuclari gor</p>
+                <p className="text-xs text-slate-400">Ask questions in natural language, get SQL, see results</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -422,9 +456,10 @@ Important:
                   value={selectedSchema || schemaOptions[0] || 'DWC_GLOBAL'}
                   onChange={(e) => setSelectedSchema(e.target.value)}
                   className="px-3 py-2 text-xs bg-white/[0.04] border border-white/[0.08] text-slate-200 rounded-lg outline-none"
+                  style={{ colorScheme: 'dark' }}
                 >
                   {schemaOptions.map((schemaName) => (
-                    <option key={schemaName} value={schemaName}>
+                    <option key={schemaName} value={schemaName} className="bg-slate-900 text-white">
                       {schemaName}
                     </option>
                   ))}
@@ -433,7 +468,7 @@ Important:
                   onClick={() => fetchTables(selectedSchema || schemaOptions[0], { forceRefresh: true })}
                   disabled={!(selectedSchema || schemaOptions[0]) || tableLoading}
                   className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition disabled:opacity-40"
-                  title="Tablo listesini yenile"
+                  title="Refresh table list"
                 >
                   <RefreshCw className={`w-4 h-4 ${tableLoading ? 'animate-spin' : ''}`} />
                 </button>
@@ -445,7 +480,7 @@ Important:
                     ? 'text-emerald-400 hover:bg-emerald-500/10'
                     : 'text-amber-400 hover:bg-amber-500/10 animate-pulse'
                 }`}
-                title={apiKey ? "API Key ayarlandi" : "API Key gerekli"}
+                title={apiKey ? "API Key set" : "API Key required"}
               >
                 <Key className="w-4 h-4" />
               </button>
@@ -453,7 +488,7 @@ Important:
                 <button
                   onClick={clearChat}
                   className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
-                  title="Sohbeti Temizle"
+                  title="Clear Chat"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -480,20 +515,20 @@ Important:
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="AIzaSy... seklinde API anahtarinizi girin"
+                  placeholder="Enter your API key like AIzaSy..."
                   className="flex-1 px-3 py-2 text-sm bg-white/[0.04] border border-white/[0.08] text-white rounded-lg focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)] outline-none placeholder-slate-600"
                 />
                 <button
                   onClick={() => setShowSettings(false)}
                   className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-blue-600 hover:shadow-lg hover:shadow-indigo-500/25 rounded-lg transition-all"
                 >
-                  Kaydet
+                  Save
                 </button>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">
+                You can get a free API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">
                   console.groq.com
-                </a>'dan ucretsiz API key alabilirsiniz. Key tarayicida saklanir.
+                </a>. The key is stored in the browser.
               </p>
             </div>
           )}
@@ -510,16 +545,16 @@ Important:
                 <Lightbulb className="w-8 h-8 text-indigo-400" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">
-                SAP DataSphere verilerinizi kesfedin
+                Explore your SAP DataSphere data
               </h3>
               <p className="text-slate-400 mb-6">
-                Hazir sablonlara tiklayin veya serbest soru sorun (AI key gerekli)
+                Click on ready-made templates or ask free-form questions (AI key required)
               </p>
 
               {/* Quick Templates - No AI needed */}
               <div className="mb-6">
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">
-                  Hazir Sorgular (Tek Tik)
+                  Ready-made Queries (One Click)
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
                   {SQL_TEMPLATES.map((t, i) => (
@@ -541,7 +576,7 @@ Important:
               {/* AI Mode hint */}
               {!apiKey && (
                 <p className="text-xs text-slate-500">
-                  Serbest sorular icin <button onClick={() => setShowSettings(true)} className="text-indigo-400 hover:underline">API key ayarlayin</button>
+                  For free-form questions, <button onClick={() => setShowSettings(true)} className="text-indigo-400 hover:underline">set an API key</button>
                 </p>
               )}
             </div>
@@ -586,7 +621,7 @@ Important:
                             <button
                               onClick={() => copyToClipboard(msg.sql)}
                               className="p-1.5 text-slate-400 hover:text-white hover:bg-white/[0.06] rounded transition"
-                              title="Kopyala"
+                              title="Copy"
                             >
                               <Copy className="w-3.5 h-3.5" />
                             </button>
@@ -612,7 +647,7 @@ Important:
                               ) : (
                                 <Play className="w-3.5 h-3.5" />
                               )}
-                              {msg.status === 'executing' ? 'Calisiyor...' : msg.status === 'success' ? 'Calistirildi' : 'Calistir'}
+                              {msg.status === 'executing' ? 'Running...' : msg.status === 'success' ? 'Executed' : 'Run'}
                             </button>
                           </div>
                         </div>
@@ -621,15 +656,15 @@ Important:
                         </pre>
                       </div>
 
-                      {msg.invalidTables?.length > 0 && (
+                      {Array.isArray(msg.invalidTables) && msg.invalidTables.length > 0 && (
                         <div className="space-y-2">
                           {msg.invalidTables.map((item) => (
                             <div key={item.name} className="px-4 py-3 bg-amber-500/[0.08] border border-amber-500/20 rounded-xl">
                               <p className="text-sm text-amber-300">
-                                <strong>{item.name}</strong> bulunamadi. Bunu mu demek istediniz?
+                                <strong>{item.name}</strong> not found. Did you mean this?
                               </p>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {item.suggestions.map((suggestion) => (
+                                {(Array.isArray(item.suggestions) ? item.suggestions : []).map((suggestion) => (
                                   <button
                                     key={`${item.name}-${suggestion.table}`}
                                     onClick={() => applySuggestion(idx, item.name, suggestion.table)}
@@ -663,7 +698,7 @@ Important:
 
               {/* Timestamp */}
               <p className={`text-[10px] text-slate-600 mt-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                {msg.timestamp.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                {msg.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
@@ -679,7 +714,7 @@ Important:
                   <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-sm text-slate-400">SQL olusturuluyor...</span>
+                <span className="text-sm text-slate-400">Generating SQL...</span>
               </div>
             </div>
           </div>
@@ -698,7 +733,7 @@ Important:
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Bir soru sorun... (orn: Bugun failed olan task'lar neler?)"
+                placeholder="Ask a question... (e.g., What tasks failed today?)"
                 className="w-full px-4 py-3 pr-12 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white placeholder-slate-600 outline-none resize-none focus:border-blue-500 focus:shadow-[0_0_0_3px_rgba(96,165,250,0.15)]"
                 rows={1}
                 style={{ minHeight: '48px', maxHeight: '120px' }}
@@ -717,7 +752,7 @@ Important:
             </button>
           </div>
           <p className="text-[10px] text-slate-600 mt-2 text-center">
-            Enter ile gonder - Shift+Enter ile yeni satir
+            Send with Enter - New line with Shift+Enter
           </p>
         </div>
       </div>
@@ -733,7 +768,7 @@ const ResultsPanel = ({ result, onExport }) => {
   if (!result?.rows?.length) {
     return (
       <div className="px-4 py-3 bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl text-sm text-slate-500">
-        Sonuc bulunamadi
+        No results found
       </div>
     );
   }
@@ -750,21 +785,21 @@ const ResultsPanel = ({ result, onExport }) => {
         <div className="flex items-center gap-4 text-xs text-slate-400">
           <span className="flex items-center gap-1.5">
             <Database className="w-3.5 h-3.5" />
-            <strong className="text-emerald-400">{result.rowCount}</strong> satir
+            <strong className="text-emerald-400">{result.rowCount}</strong> rows
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5" />
             <strong className="text-slate-300">{result.duration}</strong>ms
           </span>
           {result.limitReached && (
-            <span className="text-amber-400 font-medium">Max 500 gosteriliyor</span>
+            <span className="text-amber-400 font-medium">Showing max 500</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onExport(); }}
             className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition"
-            title="CSV Indir"
+            title="Download CSV"
           >
             <Download className="w-4 h-4" />
           </button>
@@ -815,7 +850,7 @@ const ResultsPanel = ({ result, onExport }) => {
           ) : (
             <div className="p-6 text-center text-slate-500 text-sm">
               <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-30" />
-              Chart gorunumu yakinda...
+              Chart view coming soon...
             </div>
           )}
         </div>
