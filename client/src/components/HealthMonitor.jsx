@@ -31,8 +31,8 @@ const getColor = (pct) => {
 };
 
 const getStatus = (pct) => {
-  if (pct >= 90) return { label: 'Kritik', cls: 'text-red-400' };
-  if (pct >= 75) return { label: 'Yüksek', cls: 'text-amber-400' };
+  if (pct >= 90) return { label: 'Critical', cls: 'text-red-400' };
+  if (pct >= 75) return { label: 'High', cls: 'text-amber-400' };
   return { label: 'Normal', cls: 'text-emerald-400' };
 };
 
@@ -194,8 +194,8 @@ const HealthMonitor = () => {
           <div>
             <h2 className="text-2xl font-bold text-white">Health Monitor</h2>
             <p className="text-sm text-slate-400 mt-0.5">
-              {lastUpdated ? `Son güncelleme: ${lastUpdated.toLocaleTimeString('tr-TR')} · ${countdown}s sonra yenilenir` : 'Yükleniyor…'}
-              {isMock && <span className="ml-2 text-xs text-amber-400"> (örnek veri)</span>}
+              {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString('en-US')} · refreshes in ${countdown}s` : 'Loading...'}
+              {isMock && <span className="ml-2 text-xs text-amber-400"> (sample data)</span>}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ const HealthMonitor = () => {
                         : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
               }`}>
                 {allGood ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                {allGood ? 'Tüm sistemler normal' : 'Dikkat gerekiyor'}
+                {allGood ? 'All systems normal' : 'Attention required'}
               </div>
             )}
             <button onClick={() => fetchHealth(true)} className="refresh-btn p-2 rounded-lg border border-white/[0.06] bg-white/[0.03] text-slate-400 hover:text-blue-400 hover:border-blue-500/30 hover:bg-blue-500/[0.05] transition-colors">
@@ -219,9 +219,9 @@ const HealthMonitor = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5"><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <GaugeCard title="CPU Kullanımı" pct={data.cpu.pct}  icon={Cpu}       delay={0}   />
-          <GaugeCard title="Bellek"        pct={data.mem.pct}  icon={Activity}  delay={80}  usedGb={data.mem.usedGb}  totalGb={data.mem.totalGb}  />
-          <GaugeCard title="Disk"          pct={data.disk.pct} icon={HardDrive} delay={160} usedGb={data.disk.usedGb} totalGb={data.disk.totalGb} />
+          <GaugeCard title="CPU Usage"    pct={data.cpu.pct}  icon={Cpu}       delay={0}   />
+          <GaugeCard title="Memory"       pct={data.mem.pct}  icon={Activity}  delay={80}  usedGb={data.mem.usedGb}  totalGb={data.mem.totalGb}  />
+          <GaugeCard title="Disk"         pct={data.disk.pct} icon={HardDrive} delay={160} usedGb={data.disk.usedGb} totalGb={data.disk.totalGb} />
         </div>
       )}
 
@@ -232,28 +232,28 @@ const HealthMonitor = () => {
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs text-slate-500">Başarılı (24s)</span>
+                <span className="text-xs text-slate-500">Successful (24h)</span>
               </div>
               <p className="text-2xl font-bold text-emerald-400">{data.dsSummary.completed24h || 0}</p>
             </div>
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertCircle className="w-4 h-4 text-red-400" />
-                <span className="text-xs text-slate-500">Başarısız (24s)</span>
+                <span className="text-xs text-slate-500">Failed (24h)</span>
               </div>
               <p className="text-2xl font-bold text-red-400">{data.dsSummary.failed24h || 0}</p>
             </div>
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Activity className="w-4 h-4 text-blue-400" />
-                <span className="text-xs text-slate-500">Toplam (24s)</span>
+                <span className="text-xs text-slate-500">Total (24h)</span>
               </div>
               <p className="text-2xl font-bold text-blue-400">{data.dsSummary.total24h || 0}</p>
             </div>
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Zap className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-slate-500">Aktif Görev</span>
+                <span className="text-xs text-slate-500">Active Tasks</span>
               </div>
               <p className="text-2xl font-bold text-amber-400">{data.dsSummary.activeTasks || 0}</p>
             </div>
@@ -266,9 +266,9 @@ const HealthMonitor = () => {
           <div className="flex items-start gap-3 p-4 bg-amber-500/[0.06] border border-amber-500/15 rounded-xl">
             <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="text-xs">
-              <p className="font-medium text-amber-300 mb-1">Sistem tablosu yetkisi gerekli</p>
+              <p className="font-medium text-amber-300 mb-1">System table permission required</p>
               <p className="text-amber-400/80">
-                Gerçek CPU/Bellek/Disk verisi için kullanıcınıza şu tablolara SELECT yetkisi verin:
+                For real CPU/Memory/Disk data, grant SELECT permission to your user for these tables:
               </p>
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {['SYS.M_LOAD_HISTORY_SERVICE', 'SYS.M_HOST_RESOURCE_UTILIZATION', 'SYS.M_DISK_USAGE', 'SYS.M_CONNECTIONS', 'SYS.M_EXPENSIVE_STATEMENTS'].map(t => (
@@ -286,16 +286,16 @@ const HealthMonitor = () => {
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Calendar className="w-4 h-4 text-purple-400" />Task Chains
             </h3>
-            <span className="text-xs text-slate-500">DWC_GLOBAL.TASK_CHAIN_RUNS (Detay için tıklayın)</span>
+            <span className="text-xs text-slate-500">DWC_GLOBAL.TASK_CHAIN_RUNS (Click for details)</span>
           </div>
           <table className="min-w-full text-sm">
             <thead><tr className="bg-white/[0.02]">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Chain Adı</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Chain Name</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Space</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Durum</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Kullanıcı</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Başlangıç</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500 uppercase">Süre</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">User</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Start</th>
+              <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500 uppercase">Duration</th>
             </tr></thead>
             <tbody>
               {data?.taskChains?.length > 0 ? data.taskChains.map((c, i) => (
@@ -309,11 +309,11 @@ const HealthMonitor = () => {
                   <td className="px-4 py-2.5 text-xs text-slate-400">{c.SPACE_ID}</td>
                   <td className="px-4 py-2.5 text-xs"><StatusBadge status={c.STATUS} /></td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{c.USER || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400">{c.START_TIME ? new Date(c.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-400">{c.START_TIME ? new Date(c.START_TIME).toLocaleString('en-US') : '-'}</td>
                   <td className="px-4 py-2.5 text-xs text-right text-slate-400">{c.DURATION_SEC ? `${c.DURATION_SEC}s` : '-'}</td>
                 </tr>
               )) : (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-500">Task Chain kaydı yok</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-xs text-slate-500">No Task Chain records found</td></tr>
               )}
             </tbody>
           </table>
@@ -324,27 +324,27 @@ const HealthMonitor = () => {
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.03] flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400" />Hata Alan Görevler
+              <AlertCircle className="w-4 h-4 text-red-400" />Tasks with Errors
             </h3>
             <span className="text-xs text-slate-500">DWC_GLOBAL.TASK_LOG_MESSAGES</span>
           </div>
           <table className="min-w-full text-sm">
             <thead><tr className="bg-white/[0.02]">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Görev</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Task</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Object ID</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Tarih</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Hata Mesajı</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase">Error Message</th>
             </tr></thead>
             <tbody>
               {data?.taskErrors?.length > 0 ? data.taskErrors.map((e, i) => (
                 <tr key={i} className="conn-row border-b border-white/[0.03] hover:bg-white/[0.02]" style={{ opacity: 0, animation: `staggerChild .3s ease ${i * 50}ms both` }}>
                   <td className="px-4 py-2.5 text-xs font-medium text-white">{e.TASK_NAME}</td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{e.OBJECT_ID || '-'}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400">{e.START_TIME ? new Date(e.START_TIME).toLocaleString('tr-TR') : '-'}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-400">{e.START_TIME ? new Date(e.START_TIME).toLocaleString('en-US') : '-'}</td>
                   <td className="px-4 py-2.5 text-xs text-red-400 max-w-xs truncate" title={e.TEXT}>{e.TEXT || '-'}</td>
                 </tr>
               )) : (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500">Hata kaydı yok</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500">No error records found</td></tr>
               )}
             </tbody>
           </table>
@@ -361,7 +361,7 @@ const HealthMonitor = () => {
             <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-purple-400" />
-                Task Chain Detayı
+                Task Chain Detail
                 {chainDetail?.chain && <StatusBadge status={chainDetail.chain.STATUS} />}
               </h3>
               <button onClick={closeDetail} className="p-1 hover:bg-white/[0.06] rounded transition-colors">
@@ -377,7 +377,7 @@ const HealthMonitor = () => {
                   {chainDetail.chain && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <p className="text-xs text-slate-500">Chain Adı</p>
+                        <p className="text-xs text-slate-500">Chain Name</p>
                         <p className="font-medium text-white">{chainDetail.chain.TECHNICAL_NAME}</p>
                       </div>
                       <div>
@@ -385,11 +385,11 @@ const HealthMonitor = () => {
                         <p className="font-medium text-white">{chainDetail.chain.SPACE_ID}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Kullanıcı</p>
+                        <p className="text-xs text-slate-500">User</p>
                         <p className="font-medium text-white">{chainDetail.chain.USER || '-'}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500">Süre</p>
+                        <p className="text-xs text-slate-500">Duration</p>
                         <p className="font-medium text-white">{chainDetail.chain.DURATION_SEC}s</p>
                       </div>
                     </div>
@@ -397,16 +397,16 @@ const HealthMonitor = () => {
 
                   <div>
                     <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                      <Play className="w-4 h-4 text-blue-400" />Alt Görevler (Nodes)
+                      <Play className="w-4 h-4 text-blue-400" />Sub-Tasks (Nodes)
                     </h4>
                     <table className="min-w-full text-sm border border-white/[0.06] rounded-lg overflow-hidden">
                       <thead><tr className="bg-white/[0.02]">
                         <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Node</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Uygulama</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Application</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Object</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Aktivite</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Durum</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase">Süre</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Activity</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase">Duration</th>
                       </tr></thead>
                       <tbody>
                         {chainDetail.nodes?.length > 0 ? chainDetail.nodes.map((n, i) => (
@@ -419,7 +419,7 @@ const HealthMonitor = () => {
                             <td className="px-3 py-2 text-xs text-right text-slate-400">{n.DURATION_SEC ? `${n.DURATION_SEC}s` : '-'}</td>
                           </tr>
                         )) : (
-                          <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-500">Alt görev yok</td></tr>
+                          <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-500">No sub-tasks found</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -428,7 +428,7 @@ const HealthMonitor = () => {
                   {chainDetail.errors?.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />Hata Mesajları
+                        <AlertCircle className="w-4 h-4" />Error Messages
                       </h4>
                       <div className="space-y-2">
                         {chainDetail.errors.map((e, i) => (
@@ -437,13 +437,13 @@ const HealthMonitor = () => {
                               <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                 e.SEVERITY === 'ERROR' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
                               }`}>{e.SEVERITY}</span>
-                              <span className="text-xs text-slate-500">{e.TIMESTAMP ? new Date(e.TIMESTAMP).toLocaleString('tr-TR') : ''}</span>
+                              <span className="text-xs text-slate-500">{e.TIMESTAMP ? new Date(e.TIMESTAMP).toLocaleString('en-US') : ''}</span>
                               <span className="text-xs text-slate-500">Task #{e.TASK_LOG_ID}</span>
                             </div>
                             <p className="text-sm text-red-300">{e.TEXT}</p>
                             {e.DETAILS && (
                               <details className="mt-2">
-                                <summary className="text-xs text-slate-500 cursor-pointer">Detaylar</summary>
+                                <summary className="text-xs text-slate-500 cursor-pointer">Details</summary>
                                 <pre className="mt-1 text-xs bg-white/[0.02] p-2 rounded overflow-x-auto text-slate-400">{e.DETAILS}</pre>
                               </details>
                             )}
@@ -454,7 +454,7 @@ const HealthMonitor = () => {
                   )}
                 </>
               ) : (
-                <div className="text-center py-8 text-slate-500">Detay bulunamadı</div>
+                <div className="text-center py-8 text-slate-500">No details found</div>
               )}
             </div>
           </div>
